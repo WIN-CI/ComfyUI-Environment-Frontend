@@ -1,152 +1,218 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Fan, Pencil, Copy, Trash2, Play } from 'lucide-react'
+import { Fan, Pencil, Copy, Trash2, Play, CloudUpload, Loader2 } from 'lucide-react'
+import { Environment, EnvironmentInput } from '@/types/Environment'
+import CreateEnvironmentDialog from './create-environment-dialog'
+import { useToast } from '@/hooks/use-toast'
+import { StatusBadge } from './status-badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { 
+  createEnvironment, 
+  fetchEnvironments, 
+  activateEnvironment, 
+  deactivateEnvironment, 
+  duplicateEnvironment, 
+  deleteEnvironment 
+} from '@/api/environmentApi'
+import DuplicateEnvironmentDialog from './duplicate-environment-dialog'
 
-type Environment = {
-  id: string
-  name: string
-  release: string
-  dockerImage?: string
+export interface CustomAlertDialogProps {
+  title: string
+  description: string
+  cancelText: string
+  actionText: string
+  onAction: () => void
+  children: React.ReactNode
+}
+
+export function CustomAlertDialog({ title, description, cancelText, actionText, onAction, children }: CustomAlertDialogProps) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        {children}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogAction onClick={onAction} variant='destructive'>{actionText}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
 }
 
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])
-  const [activeEnvironment, setActiveEnvironment] = useState<string | null>(null)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [newEnvironmentName, setNewEnvironmentName] = useState("")
-  const [selectedRelease, setSelectedRelease] = useState("")
-  const [customDockerImage, setCustomDockerImage] = useState("")
+  const [activatingEnvironment, setActivatingEnvironment] = useState<string | null>(null)
+  const [deletingEnvironment, setDeletingEnvironment] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  const createEnvironment = () => {
-    const newEnvironment: Environment = {
-      id: Date.now().toString(),
-      name: newEnvironmentName,
-      release: selectedRelease,
-      dockerImage: customDockerImage || undefined,
+  const updateEnvironments = async () => {
+    const fetchedEnvironments = await fetchEnvironments()
+    setEnvironments(fetchedEnvironments)
+  }
+
+  const createEnvironmentHandler = async (environment: EnvironmentInput) => {
+    try {
+      // Wait for 5 seconds
+      // await new Promise(resolve => setTimeout(resolve, 5000))
+      await createEnvironment(environment)
+      await updateEnvironments()
+    } catch (error) {
+      console.error(error)
+      throw error
     }
-    setEnvironments([...environments, newEnvironment])
-    setIsCreateModalOpen(false)
-    resetForm()
   }
 
-  const resetForm = () => {
-    setNewEnvironmentName("")
-    setSelectedRelease("")
-    setCustomDockerImage("")
+  const activateEnvironmentHandler = async (id: string) => {
+    try {
+      setActivatingEnvironment(id)
+      await activateEnvironment(id)
+      await updateEnvironments()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setActivatingEnvironment(null)
+    }
   }
 
-  const renameEnvironment = (id: string, newName: string) => {
+  const deactivateEnvironmentHandler = async (id: string) => {
+    try {
+      setActivatingEnvironment(id)
+      await deactivateEnvironment(id)
+      await updateEnvironments()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setActivatingEnvironment(null)
+    }
+  }
+
+  const deleteEnvironmentHandler = async (id: string) => {
+    try {
+      console.log(`deleteEnvironmentHandler: ${id}`)
+      setDeletingEnvironment(id)
+      const response = await deleteEnvironment(id)
+      await updateEnvironments()
+      return response
+    } catch (error) {
+      console.error(error)
+      throw error
+    } finally {
+      setDeletingEnvironment(null)
+    }
+  }
+
+  const duplicateEnvironmentHandler = async (id: string, environment: EnvironmentInput) => {
+    try {
+      console.log(`duplicateEnvironmentHandler: ${environment}`)
+      const response = await duplicateEnvironment(id, environment)
+      await updateEnvironments()
+      return response
+    } catch (error) {
+      console.error(error)
+      throw error
+    }
+  }
+
+  const renameEnvironmentHandler = (id: string, newName: string) => {
     setEnvironments(environments.map(env => 
       env.id === id ? { ...env, name: newName } : env
     ))
   }
 
-  const duplicateEnvironment = (env: Environment) => {
-    const newEnv = { ...env, id: Date.now().toString(), name: `${env.name} (Copy)` }
-    setEnvironments([...environments, newEnv])
+  const uploadEnvironmentHandler = (env: Environment) => {
+    console.log(env)
   }
 
-  const deleteEnvironment = (id: string) => {
-    setEnvironments(environments.filter(env => env.id !== id))
-    if (activeEnvironment === id) setActiveEnvironment(null)
-  }
-
-  const activateEnvironment = (id: string) => {
-    setActiveEnvironment(id)
-  }
-
-  const deactivateEnvironment = (id: string) => {
-    setActiveEnvironment(null)
-  }
+  useEffect(() => {
+    const listEnvironments = async () => {
+      await updateEnvironments()
+    }
+    listEnvironments()
+  }, [])
 
   return (
     <div className="container min-w-[100vw] min-h-screen mx-auto p-4">
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogTrigger asChild>
-          <Button className="mb-4">Create Environment</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Environment</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={newEnvironmentName}
-                onChange={(e) => setNewEnvironmentName(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="release" className="text-right">
-                ComfyUI Release
-              </Label>
-              <Select value={selectedRelease} onValueChange={setSelectedRelease}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a release" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="v1.0">v1.0</SelectItem>
-                  <SelectItem value="v1.1">v1.1</SelectItem>
-                  <SelectItem value="v1.2">v1.2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="dockerImage" className="text-right">
-                Custom Docker Image
-              </Label>
-              <Input
-                id="dockerImage"
-                value={customDockerImage}
-                onChange={(e) => setCustomDockerImage(e.target.value)}
-                placeholder="Optional: DockerHub image URL"
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <Button onClick={createEnvironment}>Create</Button>
-        </DialogContent>
-      </Dialog>
+      <CreateEnvironmentDialog environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
+        <Button className="mb-4">Create Environment</Button>
+      </CreateEnvironmentDialog>
+
+      <Button className="mb-4 mx-2" onClick={async () => {
+        await updateEnvironments()
+        toast({
+          title: "Success",
+          description: "Environments refreshed",
+        })
+      }}>Refresh</Button>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {environments.map((env) => (
-          <Card key={env.id} className={`relative ${activeEnvironment === env.id ? "ring-2 ring-slate-500" : ""}`}>
-            {activeEnvironment === env.id && (
-              <div className="absolute top-2 right-2 animate-spin">
-                <Fan className="w-6 h-6 text-zinc-900 dark:text-zinc-50" />
+        {environments.map((env: Environment) => (
+          <Card key={env.id} className={`relative ${env.status === "running" ? "ring-2 ring-slate-500" : ""}`}>
+            <div className='relative'>
+              {deletingEnvironment === env.id && (
+                <div className="absolute top-0 left-0 w-full h-full bg-zinc-200/50 backdrop-blur-sm flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-zinc-900 dark:text-zinc-50 animate-spin mr-2" /> Deleting...
+                </div>
+              )}
+              <StatusBadge status={env.status || 'Unknown'} className="my-2 mr-3" />
+              {env.status === "running" && (
+                <div className="absolute top-[50px] right-[28px] animate-spin">
+                  <Fan className="w-6 h-6 text-zinc-900 dark:text-zinc-50" />
               </div>
-            )}
-            <CardContent className="pt-6">
-              <div className="text-4xl mb-2">🖥️</div>
-              <h3 className="text-lg font-semibold">{env.name}</h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">{env.release}</p>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={() => renameEnvironment(env.id, prompt("New name") || env.name)}>
-                  <Pencil className="w-4 h-4" />
+              )}
+              <CardContent className="pt-6">
+                <div className="text-4xl mb-2">🖥️</div>
+                <h3 className="text-lg font-semibold">{env.name}</h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{env.metadata?.["base_image"]}</p>
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => uploadEnvironmentHandler(env)}>
+                    <CloudUpload className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => renameEnvironmentHandler(env.id || "", prompt("New name") || env.name)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <DuplicateEnvironmentDialog environment={env} environments={environments} duplicateEnvironmentHandler={duplicateEnvironmentHandler}>
+                    <Button variant="ghost" size="icon">
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </DuplicateEnvironmentDialog>
+                  <CustomAlertDialog 
+                    title={`Delete ${env.name} ?`} 
+                    description="This action cannot be undone. This will permanently delete your environment." 
+                    cancelText="Cancel" 
+                    actionText="Delete" 
+                    onAction={() => deleteEnvironmentHandler(env.id || "")}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </CustomAlertDialog>
+                </div>
+                <Button disabled={activatingEnvironment === env.id} onClick={() => env.status === "running" ? deactivateEnvironmentHandler(env.id || "") : activateEnvironmentHandler(env.id || "")}>
+                  {activatingEnvironment === env.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />} {env.status === "running" ? "Deactivate" : "Activate"}
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => duplicateEnvironment(env)}>
-                  <Copy className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => deleteEnvironment(env.id)}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-              <Button onClick={() => activeEnvironment === env.id ? deactivateEnvironment(env.id) : activateEnvironment(env.id)}>
-                <Play className="w-4 h-4 mr-2" /> {activeEnvironment === env.id ? "Deactivate" : "Activate"}
-              </Button>
-            </CardFooter>
+              </CardFooter>
+            </div>
           </Card>
         ))}
       </div>

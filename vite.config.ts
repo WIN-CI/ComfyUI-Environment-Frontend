@@ -10,7 +10,7 @@ export default defineConfig({
       usePolling: true, // Ensures Docker handles file change notifications correctly
     },
     host: "0.0.0.0", // Makes the server accessible outside the container
-    port: 5173, // Ensure the port matches the exposed one
+    port: 8000, // Ensure the port matches the exposed one
   },
   resolve: {
     alias: {
