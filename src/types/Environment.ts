@@ -1,6 +1,5 @@
-
 export type Options = {
-    [key: string]: string | undefined;
+    [key: string]: string | Options | undefined ;
 }
 
 export type EnvironmentInput = {

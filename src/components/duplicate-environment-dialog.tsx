@@ -65,7 +65,7 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
       name: environment.name + "-copy",
       comfyUIPath: environment.comfyui_path || defaultComfyUIPath,
       command: environment.command || "",
-      port: environment.options?.port || "8188",
+      port: String(environment.options?.port) || "8188",
     },
   })
 

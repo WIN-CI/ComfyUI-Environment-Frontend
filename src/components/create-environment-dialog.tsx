@@ -41,7 +41,7 @@ const formSchema = z.object({
   copyCustomNodes: z.boolean().default(false),
   command: z.string().optional(),
   port: z.string().optional(),
-  runtime: z.enum(["nvidia", "cpu"]),
+  runtime: z.enum(["nvidia", "none"]),
   mountConfig: z.array(z.object({
     directory: z.string(),
     action: z.enum(["mount", "copy"])
@@ -175,7 +175,7 @@ export default function CreateEnvironmentDialog({ children, environments, create
       options: {
         "comfyui_release": values.release,
         "port": values.port,
-        "mount_config": JSON.stringify(Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action])))
+        "mount_config": Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action]))
       }
     }
 
@@ -333,8 +333,8 @@ export default function CreateEnvironmentDialog({ children, environments, create
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="nvidia">NVIDIA GPU</SelectItem>
-                                <SelectItem value="cpu">CPU Only</SelectItem>
+                                <SelectItem value="nvidia">Nvidia</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage className="col-start-2 col-span-3" />
