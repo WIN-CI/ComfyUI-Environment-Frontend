@@ -24,12 +24,12 @@ import { Loader2, X } from 'lucide-react'
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
 const dockerImageToReleaseMap = {
-  "latest": "comfyui-v0.3.4-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.3.4": "comfyui-v0.3.4-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.3.0": "comfyui-v0.3.0-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.2.7": "comfyui-v0.2.7-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.2.6": "comfyui-v0.2.6-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.2.5": "comfyui-v0.2.5-base-cuda12.6.2-pytorch2.5.1:latest",
+  "latest": "comfyui:latest",
+  "v0.3.4": "comfyui:v0.3.4-base-cuda12.6.2-pytorch2.5.1",
+  "v0.3.0": "comfyui:v0.3.0-base-cuda12.6.2-pytorch2.5.1",
+  "v0.2.7": "comfyui:v0.2.7-base-cuda12.6.2-pytorch2.5.1",
+  "v0.2.6": "comfyui:v0.2.6-base-cuda12.6.2-pytorch2.5.1",
+  "v0.2.5": "comfyui:v0.2.5-base-cuda12.6.2-pytorch2.5.1",
 }
 
 const formSchema = z.object({
@@ -175,7 +175,8 @@ export default function CreateEnvironmentDialog({ children, environments, create
       options: {
         "comfyui_release": values.release,
         "port": values.port,
-        "mount_config": Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action]))
+        "mount_config": Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action])),
+        "runtime": values.runtime,
       }
     }
 
