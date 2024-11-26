@@ -41,6 +41,7 @@ const formSchema = z.object({
   copyCustomNodes: z.boolean().default(false),
   command: z.string().optional(),
   port: z.string().optional(),
+  runtime: z.enum(["nvidia", "cpu"]),
   mountConfig: z.array(z.object({
     directory: z.string(),
     action: z.enum(["mount", "copy"])
@@ -138,6 +139,7 @@ export default function CreateEnvironmentDialog({ children, environments, create
       copyCustomNodes: false,
       command: "",
       port: "8188",
+      runtime: "nvidia",
       mountConfig: [
         { directory: "custom_nodes", action: "copy" },
         { directory: "user", action: "mount" },
@@ -318,6 +320,27 @@ export default function CreateEnvironmentDialog({ children, environments, create
                           </FormItem>
                         )}
                       /> */}
+                      <FormField
+                        control={form.control}
+                        name="runtime"
+                        render={({ field }) => (
+                          <FormItem className="grid grid-cols-4 items-center gap-4">
+                            <FormLabel className="text-right">Runtime</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl className="col-span-3">
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select runtime" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="nvidia">NVIDIA GPU</SelectItem>
+                                <SelectItem value="cpu">CPU Only</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage className="col-start-2 col-span-3" />
+                          </FormItem>
+                        )}
+                      />
                       <FormFieldComponent control={form.control} name="command" label="Command" placeholder="Additional command" />
                       <FormFieldComponent control={form.control} name="port" label="Port" placeholder="Port number" type="number" />
                       <div>
