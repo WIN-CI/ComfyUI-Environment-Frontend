@@ -87,6 +87,7 @@ export default function SettingsEnvironmentDialog({ children, environment, updat
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">About</h3>
               <div className="space-y-1">
+                <p><strong>Created At:</strong> {new Date(Number(environment.metadata?.["created_at"]) * 1000).toLocaleString()}</p>
                 <p><strong>Base Image:</strong> {environment.metadata?.["base_image"] as string}</p>
                 <p><strong>Duplicate:</strong> {environment.duplicate ? 'Yes' : 'No'}</p>
                 <p><strong>Environment ID:</strong> {environment.id}</p>

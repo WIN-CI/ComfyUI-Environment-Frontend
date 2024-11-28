@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Fan, Pencil, Copy, Trash2, Play, CloudUpload, Loader2, Settings, SquareTerminal } from 'lucide-react'
 import { Environment, EnvironmentInput } from '@/types/Environment'
-import CreateEnvironmentDialog from './create-environment-dialog'
+import CreateEnvironmentDialog from './dialogs/CreateEnvironmentDialog'
 import { useToast } from '@/hooks/use-toast'
-import { StatusBadge } from './status-badge'
+import { StatusBadge } from './utils/StatusBadge'
 import { 
   createEnvironment, 
   fetchEnvironments, 
@@ -15,10 +15,10 @@ import {
   deleteEnvironment,
   updateEnvironment
 } from '@/api/environmentApi'
-import DuplicateEnvironmentDialog from './duplicate-environment-dialog'
-import SettingsEnvironmentDialog from './settings-environment-dialog'
-import LogDisplayDialog from './log-display-dialog'
-import { CustomAlertDialog } from './custom-alert-dialog'
+import DuplicateEnvironmentDialog from './dialogs/DuplicateEnvironmentDialog'
+import SettingsEnvironmentDialog from './dialogs/SettingsEnvironmentDialog'
+import LogDisplayDialog from './dialogs/LogDisplayDialog'
+import { CustomAlertDialog } from './dialogs/CustomAlertDialog'
 
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])

@@ -21,8 +21,9 @@ import {
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
 import { tryInstallComfyUI } from '@/api/environmentApi'
-import { CustomAlertDialog } from './custom-alert-dialog'
-import path from 'path';
+import { CustomAlertDialog } from './CustomAlertDialog'
+import FormFieldComponent from '../form/FormFieldComponent'
+import MountConfigRow from '../form/MountConfigRow'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
@@ -43,7 +44,7 @@ const formSchema = z.object({
   release: z.enum(Object.keys(dockerImageToReleaseMap) as [string, ...string[]]),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
-  environmentType: z.enum(["Default", "Isolated", "Custom"]),
+  environmentType: z.enum(["Default", "Default + Copy Custom Nodes", "Isolated", "Custom"]),
   copyCustomNodes: z.boolean().default(false),
   command: z.string().optional(),
   port: z.string().optional(),
@@ -54,74 +55,6 @@ const formSchema = z.object({
   }))
 })
 
-// Reusable FormFieldComponent
-const FormFieldComponent = ({ control, name, label, placeholder, type = "text", children }: any) => (
-  <FormField
-    control={control}
-    name={name}
-    render={({ field }) => (
-      <FormItem className="grid grid-cols-4 items-center gap-4">
-        <FormLabel className="text-right">{label}</FormLabel>
-        <FormControl className="col-span-3">
-          {children || <Input {...field} type={type} placeholder={placeholder} />}
-        </FormControl>
-        <FormMessage className="col-start-2 col-span-3" />
-      </FormItem>
-    )}
-  />
-);
-
-const MountConfigRow = ({ index, remove, control, onActionChange }: any) => (
-  <div className="flex items-center space-x-2 mb-2">
-    <div className="w-full">
-    <FormField
-      control={control}
-      name={`mountConfig.${index}.directory`}
-      render={({ field }) => (
-        <FormItem>
-          <FormControl>
-            <Input {...field} placeholder="Directory name" onChange={(e) => {
-              field.onChange(e)
-              onActionChange()
-            }} />
-          </FormControl>
-        </FormItem>
-      )}
-    />
-    </div>
-    <div className="w-40">
-      <FormField
-        control={control}
-        name={`mountConfig.${index}.action`}
-        render={({ field }) => (
-          <FormItem>
-            <Select onValueChange={(value) => {
-              field.onChange(value)
-              onActionChange()
-            }} value={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="mount">Mount</SelectItem>
-                <SelectItem value="copy">Copy</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormItem>
-          
-        )}
-      />
-    </div>  
-    <Button type="button" variant="ghost" onClick={() => {
-      remove(index)
-      onActionChange()
-    }}>
-      <X className="h-4 w-4" />
-    </Button>
-  </div>
-)
 
 export interface CreateEnvironmentDialogProps {
   children: React.ReactNode
@@ -149,7 +82,6 @@ export default function CreateEnvironmentDialog({ children, environments, create
       port: "8188",
       runtime: "nvidia",
       mountConfig: [
-        { directory: "custom_nodes", action: "copy" },
         { directory: "user", action: "mount" },
         { directory: "models", action: "mount" },
         { directory: "output", action: "mount" },
@@ -225,10 +157,9 @@ export default function CreateEnvironmentDialog({ children, environments, create
   }
 
   const handleEnvironmentTypeChange = (value: string) => {
-    form.setValue("environmentType", value as "Default" | "Isolated" | "Custom")
+    form.setValue("environmentType", value as "Default" | "Default + Copy Custom Nodes" | "Isolated" | "Custom")
     if (value === "Default") {
       form.setValue("mountConfig", [
-        { directory: "custom_nodes", action: "copy" },
         { directory: "user", action: "mount" },
         { directory: "models", action: "mount" },
         { directory: "output", action: "mount" },
@@ -236,6 +167,14 @@ export default function CreateEnvironmentDialog({ children, environments, create
       ])
     } else if (value === "Isolated") {
       form.setValue("mountConfig", [])
+    } else if (value === "Default + Copy Custom Nodes") {
+      form.setValue("mountConfig", [
+        { directory: "custom_nodes", action: "copy" },
+        { directory: "user", action: "mount" },
+        { directory: "models", action: "mount" },
+        { directory: "output", action: "mount" },
+        { directory: "input", action: "mount" },
+      ])
     }
   }
 
@@ -376,6 +315,7 @@ export default function CreateEnvironmentDialog({ children, environments, create
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="Default">Default</SelectItem>
+                          <SelectItem value="Default + Copy Custom Nodes">Default + Copy Custom Nodes</SelectItem>
                           <SelectItem value="Isolated">Isolated</SelectItem>
                           <SelectItem value="Custom">Custom</SelectItem>
                         </SelectContent>

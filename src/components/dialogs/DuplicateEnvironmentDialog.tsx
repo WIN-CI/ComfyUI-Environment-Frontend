@@ -20,6 +20,8 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
+import FormFieldComponent from '../form/FormFieldComponent'
+import MountConfigRow from '../form/MountConfigRow'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
@@ -50,74 +52,6 @@ const formSchema = z.object({
   }))
 })
 
-// Reusable FormFieldComponent
-const FormFieldComponent = ({ control, name, label, placeholder, type = "text", children }: any) => (
-  <FormField
-    control={control}
-    name={name}
-    render={({ field }) => (
-      <FormItem className="grid grid-cols-4 items-center gap-4">
-        <FormLabel className="text-right">{label}</FormLabel>
-        <FormControl className="col-span-3">
-          {children || <Input {...field} type={type} placeholder={placeholder} />}
-        </FormControl>
-        <FormMessage className="col-start-2 col-span-3" />
-      </FormItem>
-    )}
-  />
-);
-
-const MountConfigRow = ({ index, remove, control, onActionChange }: any) => (
-  <div className="flex items-center space-x-2 mb-2">
-    <div className="w-full">
-    <FormField
-      control={control}
-      name={`mountConfig.${index}.directory`}
-      render={({ field }) => (
-        <FormItem>
-          <FormControl>
-            <Input {...field} placeholder="Directory name" onChange={(e) => {
-              field.onChange(e)
-              onActionChange()
-            }} />
-          </FormControl>
-        </FormItem>
-      )}
-    />
-    </div>
-    <div className="w-40">
-      <FormField
-        control={control}
-        name={`mountConfig.${index}.action`}
-        render={({ field }) => (
-          <FormItem>
-            <Select onValueChange={(value) => {
-              field.onChange(value)
-              onActionChange()
-            }} value={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="mount">Mount</SelectItem>
-                <SelectItem value="copy">Copy</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormItem>
-          
-        )}
-      />
-    </div>  
-    <Button type="button" variant="ghost" onClick={() => {
-      remove(index)
-      onActionChange()
-    }}>
-      <X className="h-4 w-4" />
-    </Button>
-  </div>
-)
 
 export interface DuplicateEnvironmentDialogProps {
   children: React.ReactNode
@@ -135,14 +69,14 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: environment.name + "-copy",
-      release: "latest",
+      release: environment.options?.["comfyui_release"] as string || "latest",
       image: "",
       comfyUIPath: environment.comfyui_path || defaultComfyUIPath || "",
       environmentType: "Auto",
       copyCustomNodes: false,
-      command: "",
-      port: "8188",
-      runtime: "nvidia",
+      command: environment.command || "",
+      port: environment.options?.["port"] as string || "8188",
+      runtime: environment.options?.["runtime"] as "nvidia" | "none" || "nvidia",
       mountConfig: Object.entries(environment.options?.["mount_config"] || {})
         .filter(([_, action]) => action === "mount")
         .map(([directory, action]) => ({ directory, action: action as "mount" })),
