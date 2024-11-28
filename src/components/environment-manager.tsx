@@ -1,62 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Fan, Pencil, Copy, Trash2, Play, CloudUpload, Loader2 } from 'lucide-react'
+import { Fan, Pencil, Copy, Trash2, Play, CloudUpload, Loader2, Settings, SquareTerminal } from 'lucide-react'
 import { Environment, EnvironmentInput } from '@/types/Environment'
 import CreateEnvironmentDialog from './create-environment-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { StatusBadge } from './status-badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { 
   createEnvironment, 
   fetchEnvironments, 
   activateEnvironment, 
   deactivateEnvironment, 
   duplicateEnvironment, 
-  deleteEnvironment 
+  deleteEnvironment,
+  updateEnvironment
 } from '@/api/environmentApi'
 import DuplicateEnvironmentDialog from './duplicate-environment-dialog'
-
-export interface CustomAlertDialogProps {
-  title: string
-  description: string
-  cancelText: string
-  actionText: string
-  onAction: () => void
-  children: React.ReactNode
-}
-
-export function CustomAlertDialog({ title, description, cancelText, actionText, onAction, children }: CustomAlertDialogProps) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        {children}
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
-          <AlertDialogAction onClick={onAction} variant='destructive'>{actionText}</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
+import SettingsEnvironmentDialog from './settings-environment-dialog'
+import LogDisplayDialog from './log-display-dialog'
+import { CustomAlertDialog } from './custom-alert-dialog'
 
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])
@@ -132,15 +94,26 @@ export function EnvironmentManagerComponent() {
     }
   }
 
-  const renameEnvironmentHandler = (id: string, newName: string) => {
-    setEnvironments(environments.map(env => 
-      env.id === id ? { ...env, name: newName } : env
-    ))
+  const updateEnvironmentHandler = async (id: string, name: string) => {
+    console.log(`updateEnvironmentHandler: ${id} ${name}`)
+    try {
+      await updateEnvironment(id, { name })
+      await updateEnvironments()
+    } catch (error) {
+      console.error(error)
+      throw error
+    }
   }
 
-  const uploadEnvironmentHandler = (env: Environment) => {
-    console.log(env)
-  }
+  // const renameEnvironmentHandler = (id: string, newName: string) => {
+  //   setEnvironments(environments.map(env => 
+  //     env.id === id ? { ...env, name: newName } : env
+  //   ))
+  // }
+
+  // const uploadEnvironmentHandler = (env: Environment) => {
+  //   console.log(env)
+  // }
 
   useEffect(() => {
     const listEnvironments = async () => {
@@ -181,16 +154,20 @@ export function EnvironmentManagerComponent() {
               <CardContent className="pt-6">
                 <div className="text-4xl mb-2">🖥️</div>
                 <h3 className="text-lg font-semibold">{env.name}</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">{env.metadata?.["base_image"]}</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{env.metadata?.["base_image"] as string}</p>
               </CardContent>
               <CardFooter className="flex justify-between">
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => uploadEnvironmentHandler(env)}>
-                    <CloudUpload className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => renameEnvironmentHandler(env.id || "", prompt("New name") || env.name)}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+                  <SettingsEnvironmentDialog environment={env} updateEnvironmentHandler={updateEnvironmentHandler}>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </SettingsEnvironmentDialog>
+                  <LogDisplayDialog environment={env}>
+                    <Button variant="ghost" size="icon">
+                      <SquareTerminal className="w-4 h-4" />
+                    </Button>
+                  </LogDisplayDialog>
                   <DuplicateEnvironmentDialog environment={env} environments={environments} duplicateEnvironmentHandler={duplicateEnvironmentHandler}>
                     <Button variant="ghost" size="icon">
                       <Copy className="w-4 h-4" />

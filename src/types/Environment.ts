@@ -16,9 +16,15 @@ export type Environment = {
     id?: string;
     status?: string;
     command?: string;
+    duplicate?: boolean;
     comfyui_path?: string;
     options?: Options;
     metadata?: Options;
+}
+
+export type EnvironmentUpdate = {
+    name?: string;
+    options?: Options;
 }
 
 // name: str

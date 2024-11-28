@@ -1,5 +1,5 @@
 // src/api/environmentApi.ts
-import { Environment, EnvironmentInput } from '../types/Environment';
+import { Environment, EnvironmentInput, EnvironmentUpdate } from '../types/Environment';
 
 const API_BASE_URL = 'http://localhost:5172'; // TODO: put in .env
 
@@ -77,6 +77,56 @@ export async function duplicateEnvironment(id: string, environment: Environment)
   if (!response.ok) {
     const errorDetails = await response.json()
     console.error(`${response.status} - Failed to duplicate environment: ${errorDetails.detail}`)
+    throw new Error(`${errorDetails.detail}`);
+  }
+  return response.json();
+}
+
+export async function updateEnvironment(id: string, environment: EnvironmentUpdate) {
+  const response = await fetch(`${API_BASE_URL}/environments/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(environment),
+  });
+  if (!response.ok) {
+    const errorDetails = await response.json()
+    console.error(`${response.status} - Failed to update environment: ${errorDetails.detail}`)
+    throw new Error(`${errorDetails.detail}`);
+  }
+  return response.json();
+}
+
+export function connectToLogStream(environmentId: string, onLogReceived: (log: string) => void) {
+  const eventSource = new EventSource(`${API_BASE_URL}/environments/${environmentId}/logs`);
+
+  eventSource.onmessage = (event) => {
+    onLogReceived(event.data);
+  };
+
+  eventSource.onerror = (error) => {
+    console.error("Error receiving log stream:", error);
+    eventSource.close();
+  };
+
+  return () => {
+    eventSource.close();
+  };
+}
+
+export async function tryInstallComfyUI(comfyUIPath: string, branch: string = "master") {
+  const response = await fetch(`${API_BASE_URL}/install-comfyui`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ path: comfyUIPath, branch: branch }),
+  });
+  console.log(response)
+  if (!response.ok) {
+    const errorDetails = await response.json()
+    console.error(`${response.status} - Failed to install ComfyUI: ${errorDetails.detail}`)
     throw new Error(`${errorDetails.detail}`);
   }
   return response.json();

@@ -20,6 +20,9 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
+import { tryInstallComfyUI } from '@/api/environmentApi'
+import { CustomAlertDialog } from './custom-alert-dialog'
+import path from 'path';
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
@@ -31,6 +34,9 @@ const dockerImageToReleaseMap = {
   "v0.2.6": "comfyui:v0.2.6-base-cuda12.6.2-pytorch2.5.1",
   "v0.2.5": "comfyui:v0.2.5-base-cuda12.6.2-pytorch2.5.1",
 }
+
+// Get the inverse mapping of dockerImageToReleaseMap
+const comfyUIReleasesFromImageMap = Object.fromEntries(Object.entries(dockerImageToReleaseMap).map(([release, image]) => [image, release]))
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Environment name is required" }),
@@ -126,6 +132,8 @@ export interface CreateEnvironmentDialogProps {
 export default function CreateEnvironmentDialog({ children, environments, createEnvironmentHandler }: CreateEnvironmentDialogProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [installComfyUIDialog, setInstallComfyUIDialog] = useState(false)
+  const [isInstallingComfyUILoading, setIsInstallingComfyUILoading] = useState(false)
   const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -200,12 +208,17 @@ export default function CreateEnvironmentDialog({ children, environments, create
         description: "Environment created successfully",
       })
     } catch (error: any) {
-      console.error(error)
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      })
+      console.log(error.message)
+      if (error.message === "No valid ComfyUI installation found.") {
+        setInstallComfyUIDialog(true)
+      } else {
+        console.error(error)
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -230,161 +243,263 @@ export default function CreateEnvironmentDialog({ children, environments, create
     form.setValue("environmentType", "Custom")
   }
 
+  const handleInstallComfyUI = async () => {
+    try {
+      console.log(form.getValues("comfyUIPath"))
+      let branch = comfyUIReleasesFromImageMap[form.getValues("image") as keyof typeof comfyUIReleasesFromImageMap]
+      setIsInstallingComfyUILoading(true)
+      // If branch is latest, we don't need to specify a branch
+      if (branch === "latest") {
+        await tryInstallComfyUI(form.getValues("comfyUIPath"))
+      } else {
+        await tryInstallComfyUI(form.getValues("comfyUIPath"), branch)
+      }
+      // On success, append "ComfyUI" to the comfyui path TODO: This is a hack to make sure the path is correct
+      const currentPath = form.getValues("comfyUIPath");
+      const separator = currentPath.includes("\\") ? "\\" : "/";
+      const newPath = currentPath.endsWith(separator) ? currentPath : currentPath + separator;
+      form.setValue("comfyUIPath", newPath + "ComfyUI");
+      toast({
+        title: "Success",
+        description: "ComfyUI installed successfully",
+      })
+    } catch (error: any) {
+      console.error(error)
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsInstallingComfyUILoading(false)
+      setInstallComfyUIDialog(false)
+    }
+  }
+
   return (
-    <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className='max-h-[80vh] overflow-y-auto dialog-content'>
-        <DialogHeader>
-          <DialogTitle>Create New Environment</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <div className="relative">
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" /> Creating...
-              </div>
-            )}
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormFieldComponent control={form.control} name="name" label="Name" placeholder="" />
-              <FormField
-                control={form.control}
-                name="release"
-                render={({ field }) => (
-                  <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">ComfyUI Release</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl className="col-span-3">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a release" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.keys(dockerImageToReleaseMap).map((release) => (
-                          <SelectItem key={release} value={release}>{release}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="col-start-2 col-span-3" />
-                  </FormItem>
-                )}
-              />
-              <FormFieldComponent control={form.control} name="dockerImage" label="Custom Docker Image" placeholder="Optional: DockerHub image URL" />
-              <FormFieldComponent control={form.control} name="comfyUIPath" label="Path to ComfyUI" placeholder="/path/to/ComfyUI" />
-              <FormField
-                control={form.control}
-                name="environmentType"
-                render={({ field }) => (
-                  <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">Environment Type</FormLabel>
-                    <Select onValueChange={handleEnvironmentTypeChange} value={field.value}>
-                      <FormControl className="col-span-3">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select environment type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Default">Default</SelectItem>
-                        <SelectItem value="Isolated">Isolated</SelectItem>
-                        <SelectItem value="Custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="col-start-2 col-span-3" />
-                  </FormItem>
-                )}
-              />
-              <Accordion type="single" collapsible className="w-full px-1">
-                <AccordionItem value="advanced-options">
-                  <AccordionTrigger className="text-md font-semibold py-2 px-2">Advanced Options</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 px-4">
-                      {/* <FormField
-                        control={form.control}
-                        name="copyCustomNodes"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Copy Custom Nodes From Local
-                              </FormLabel>
-                              <FormDescription>
-                                This will copy custom nodes from your local ComfyUI installation
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      /> */}
-                      <FormField
-                        control={form.control}
-                        name="runtime"
-                        render={({ field }) => (
-                          <FormItem className="grid grid-cols-4 items-center gap-4">
-                            <FormLabel className="text-right">Runtime</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl className="col-span-3">
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select runtime" />
-                                </SelectTrigger>
+    <>
+
+      <CustomAlertDialog
+        open={installComfyUIDialog}
+        title="Could not find valid ComfyUI installation"
+        description="We could not find a valid ComfyUI installation at the path you provided. Should we try to install ComfyUI automatically?"
+        cancelText="No"
+        actionText="Yes"
+        onAction={handleInstallComfyUI}
+        variant="default"
+        loading={isInstallingComfyUILoading}
+        />
+
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogTrigger asChild>{children}</DialogTrigger>
+        <DialogContent className="max-h-[80vh] overflow-y-auto dialog-content">
+          <DialogHeader>
+            <DialogTitle>Create New Environment</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <div className="relative">
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />{" "}
+                  Creating...
+                </div>
+              )}
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
+                <FormFieldComponent
+                  control={form.control}
+                  name="name"
+                  label="Name"
+                  placeholder=""
+                />
+                <FormField
+                  control={form.control}
+                  name="release"
+                  render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-4">
+                      <FormLabel className="text-right">
+                        ComfyUI Release
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl className="col-span-3">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a release" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.keys(dockerImageToReleaseMap).map(
+                            (release) => (
+                              <SelectItem key={release} value={release}>
+                                {release}
+                              </SelectItem>
+                            )
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="col-start-2 col-span-3" />
+                    </FormItem>
+                  )}
+                />
+                <FormFieldComponent
+                  control={form.control}
+                  name="dockerImage"
+                  label="Custom Docker Image"
+                  placeholder="Optional: DockerHub image URL"
+                />
+                <FormFieldComponent
+                  control={form.control}
+                  name="comfyUIPath"
+                  label="Path to ComfyUI"
+                  placeholder="/path/to/ComfyUI"
+                />
+                <FormField
+                  control={form.control}
+                  name="environmentType"
+                  render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-4">
+                      <FormLabel className="text-right">
+                        Environment Type
+                      </FormLabel>
+                      <Select
+                        onValueChange={handleEnvironmentTypeChange}
+                        value={field.value}
+                      >
+                        <FormControl className="col-span-3">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select environment type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Default">Default</SelectItem>
+                          <SelectItem value="Isolated">Isolated</SelectItem>
+                          <SelectItem value="Custom">Custom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="col-start-2 col-span-3" />
+                    </FormItem>
+                  )}
+                />
+                <Accordion type="single" collapsible className="w-full px-1">
+                  <AccordionItem value="advanced-options">
+                    <AccordionTrigger className="text-md font-semibold py-2 px-2">
+                      Advanced Options
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 px-4">
+                        {/* <FormField
+                          control={form.control}
+                          name="copyCustomNodes"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">
+                                  Copy Custom Nodes From Local
+                                </FormLabel>
+                                <FormDescription>
+                                  This will copy custom nodes from your local ComfyUI installation
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="nvidia">Nvidia</SelectItem>
-                                <SelectItem value="none">None</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage className="col-start-2 col-span-3" />
-                          </FormItem>
-                        )}
-                      />
-                      <FormFieldComponent control={form.control} name="command" label="Command" placeholder="Additional command" />
-                      <FormFieldComponent control={form.control} name="port" label="Port" placeholder="Port number" type="number" />
-                      <div>
-                        <FormLabel>Mount Config</FormLabel>
-                        <div className="space-y-2 pt-2 rounded-lg">
-                          {fields.map((field, index) => (
-                            <MountConfigRow key={field.id} index={index} remove={remove} control={form.control} onActionChange={handleMountConfigChange} />
-                          ))}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="mt-2"
-                            onClick={() => {
-                              append({ directory: "", action: "mount" })
-                              handleMountConfigChange()
-                            }}
-                          >
-                            Add Directory
-                          </Button>
+                            </FormItem>
+                          )}
+                        /> */}
+                        <FormField
+                          control={form.control}
+                          name="runtime"
+                          render={({ field }) => (
+                            <FormItem className="grid grid-cols-4 items-center gap-4">
+                              <FormLabel className="text-right">
+                                Runtime
+                              </FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <FormControl className="col-span-3">
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select runtime" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="nvidia">Nvidia</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage className="col-start-2 col-span-3" />
+                            </FormItem>
+                          )}
+                        />
+                        <FormFieldComponent
+                          control={form.control}
+                          name="command"
+                          label="Command"
+                          placeholder="Additional command"
+                        />
+                        <FormFieldComponent
+                          control={form.control}
+                          name="port"
+                          label="Port"
+                          placeholder="Port number"
+                          type="number"
+                        />
+                        <div>
+                          <FormLabel>Mount Config</FormLabel>
+                          <div className="space-y-2 pt-2 rounded-lg">
+                            {fields.map((field, index) => (
+                              <MountConfigRow
+                                key={field.id}
+                                index={index}
+                                remove={remove}
+                                control={form.control}
+                                onActionChange={handleMountConfigChange}
+                              />
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => {
+                                append({ directory: "", action: "mount" });
+                                handleMountConfigChange();
+                              }}
+                            >
+                              Add Directory
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
