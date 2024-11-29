@@ -25,27 +25,17 @@ import MountConfigRow from '../form/MountConfigRow'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
-const dockerImageToReleaseMap = {
-  "latest": "comfyui:latest",
-  "v0.3.4": "comfyui:v0.3.4-base-cuda12.6.2-pytorch2.5.1",
-  "v0.3.0": "comfyui:v0.3.0-base-cuda12.6.2-pytorch2.5.1",
-  "v0.2.7": "comfyui:v0.2.7-base-cuda12.6.2-pytorch2.5.1",
-  "v0.2.6": "comfyui:v0.2.6-base-cuda12.6.2-pytorch2.5.1",
-  "v0.2.5": "comfyui:v0.2.5-base-cuda12.6.2-pytorch2.5.1",
-}
-
 const formSchema = z.object({
   name: z.string()
     .min(2, { message: "Environment name is required. Minimum length is 2 characters." })
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, { message: "Invalid environment name format. Only alphanumeric characters, dots, underscores, and hyphens are allowed." }),
-  release: z.enum(Object.keys(dockerImageToReleaseMap) as [string, ...string[]]),
+  release: z.string().optional(),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
-  environmentType: z.enum(["Auto", "Custom"]),
-  copyCustomNodes: z.boolean().default(false),
   command: z.string().optional(),
   port: z.string().optional(),
   runtime: z.enum(["nvidia", "none"]),
+  environmentType: z.enum(["Auto", "Custom"]),
   mountConfig: z.array(z.object({
     directory: z.string(),
     action: z.enum(["mount", "copy"])
@@ -72,11 +62,10 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
       release: environment.options?.["comfyui_release"] as string || "latest",
       image: "",
       comfyUIPath: environment.comfyui_path || defaultComfyUIPath || "",
-      environmentType: "Auto",
-      copyCustomNodes: false,
       command: environment.command || "",
       port: environment.options?.["port"] as string || "8188",
       runtime: environment.options?.["runtime"] as "nvidia" | "none" || "nvidia",
+      environmentType: "Auto",
       mountConfig: Object.entries(environment.options?.["mount_config"] || {})
         .filter(([_, action]) => action === "mount")
         .map(([directory, action]) => ({ directory, action: action as "mount" })),
@@ -102,7 +91,7 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const newEnvironment: EnvironmentInput = {
       name: values.name,
-      image: values.image || dockerImageToReleaseMap[values.release as keyof typeof dockerImageToReleaseMap],
+      image: "", // TODO: Image not needed for duplicate
       command: values.command,
       comfyui_path: values.comfyUIPath,
       options: {
@@ -193,12 +182,25 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
                     <Select onValueChange={handleEnvironmentTypeChange} value={field.value}>
                       <FormControl className="col-span-3">
                         <SelectTrigger>
-                          <SelectValue placeholder="Select environment type" />
+                          <SelectValue>
+                            {field.value}
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Auto">Auto</SelectItem>
-                        <SelectItem value="Custom">Custom</SelectItem>
+                        <SelectItem value="Auto">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Auto</span>
+                            <span className="text-xs text-muted-foreground">Keeps the same mount configuration as the<br /> original environment, excluding copied directories.</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Custom">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Custom</span>
+                            <span className="text-xs text-muted-foreground">Allows for advanced configuration options.</span>
+                          </div>
+                        </SelectItem>
+
                       </SelectContent>
                     </Select>
                     <FormMessage className="col-start-2 col-span-3" />

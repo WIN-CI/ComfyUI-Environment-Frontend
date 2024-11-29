@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Fan, Pencil, Copy, Trash2, Play, CloudUpload, Loader2, Settings, SquareTerminal } from 'lucide-react'
+import { Fan, Settings, Copy, Trash2, Play, SquareTerminal, Loader2, RefreshCcw } from 'lucide-react'
 import { Environment, EnvironmentInput } from '@/types/Environment'
 import CreateEnvironmentDialog from './dialogs/CreateEnvironmentDialog'
 import { useToast } from '@/hooks/use-toast'
@@ -13,28 +13,39 @@ import {
   deactivateEnvironment, 
   duplicateEnvironment, 
   deleteEnvironment,
-  updateEnvironment
+  updateEnvironment,
+  getUserSettings,
+  updateUserSettings,
 } from '@/api/environmentApi'
 import DuplicateEnvironmentDialog from './dialogs/DuplicateEnvironmentDialog'
 import SettingsEnvironmentDialog from './dialogs/SettingsEnvironmentDialog'
 import LogDisplayDialog from './dialogs/LogDisplayDialog'
 import { CustomAlertDialog } from './dialogs/CustomAlertDialog'
+import UserSettingsDialog from './dialogs/UserSettingsDialog'
+import { UserSettings } from '@/types/UserSettings'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [activatingEnvironment, setActivatingEnvironment] = useState<string | null>(null)
   const [deletingEnvironment, setDeletingEnvironment] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const { toast } = useToast()
 
   const updateEnvironments = async () => {
-    const fetchedEnvironments = await fetchEnvironments()
-    setEnvironments(fetchedEnvironments)
+    try {
+      const fetchedEnvironments = await fetchEnvironments()
+      setEnvironments(fetchedEnvironments)
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Failed to fetch environments:', error)
+      // Keep isLoading true to continue showing the loading state
+    }
   }
 
   const createEnvironmentHandler = async (environment: EnvironmentInput) => {
     try {
-      // Wait for 5 seconds
-      // await new Promise(resolve => setTimeout(resolve, 5000))
       await createEnvironment(environment)
       await updateEnvironments()
     } catch (error) {
@@ -105,36 +116,64 @@ export function EnvironmentManagerComponent() {
     }
   }
 
-  // const renameEnvironmentHandler = (id: string, newName: string) => {
-  //   setEnvironments(environments.map(env => 
-  //     env.id === id ? { ...env, name: newName } : env
-  //   ))
-  // }
-
-  // const uploadEnvironmentHandler = (env: Environment) => {
-  //   console.log(env)
-  // }
+  const updateUserSettingsHandler = async (settings: UserSettings) => {
+    try {
+      await updateUserSettings(settings)
+      setUserSettings(settings)
+    } catch (error) {
+      console.error(error)
+      throw error
+    }
+  }
 
   useEffect(() => {
-    const listEnvironments = async () => {
+    const fetchData = async () => {
       await updateEnvironments()
+      const settings = await getUserSettings()
+      console.log(`settings: ${JSON.stringify(settings)}`)
+      setUserSettings(settings)
     }
-    listEnvironments()
-  }, [])
+
+    const retryInterval = setInterval(() => {
+      if (isLoading) {
+        fetchData()
+      }
+    }, 2000)
+
+    fetchData()
+
+    return () => clearInterval(retryInterval)
+  }, [isLoading])
 
   return (
-    <div className="container min-w-[100vw] min-h-screen mx-auto p-4">
-      <CreateEnvironmentDialog environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
-        <Button className="mb-4">Create Environment</Button>
-      </CreateEnvironmentDialog>
+    <div className="container min-w-[100vw] min-h-screen mx-auto p-4 relative">
+      {isLoading && (
+        <div className="absolute inset-0 bg-zinc-200/50 dark:bg-zinc-800/50 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          <Loader2 className="w-12 h-12 text-zinc-900 dark:text-zinc-50 animate-spin mb-4" />
+          <p className="text-zinc-900 dark:text-zinc-50 text-lg font-semibold">
+            Connecting to server...
+          </p>
+          <p className="text-zinc-600 dark:text-zinc-400 mt-2">
+            Please wait while we establish a connection.
+          </p>
+        </div>
+      )}
 
-      <Button className="mb-4 mx-2" onClick={async () => {
-        await updateEnvironments()
-        toast({
-          title: "Success",
-          description: "Environments refreshed",
-        })
-      }}>Refresh</Button>
+      <div className="flex items-center">
+        <CreateEnvironmentDialog userSettings={userSettings} environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
+          <Button className="mb-4">Create Environment</Button>
+        </CreateEnvironmentDialog>
+
+
+        <Button className="mb-4 mx-2" onClick={async () => {
+          setIsLoading(true)
+          await updateEnvironments()
+        }}><RefreshCcw className="w-4 h-4" />Refresh</Button>
+
+        <UserSettingsDialog updateUserSettingsHandler={updateUserSettingsHandler}>
+          <Button className="mb-4"><Settings className="w-4 h-4" />Settings</Button>
+        </UserSettingsDialog>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {environments.map((env: Environment) => (
@@ -149,7 +188,7 @@ export function EnvironmentManagerComponent() {
               {env.status === "running" && (
                 <div className="absolute top-[50px] right-[28px] animate-spin">
                   <Fan className="w-6 h-6 text-zinc-900 dark:text-zinc-50" />
-              </div>
+                </div>
               )}
               <CardContent className="pt-6">
                 <div className="text-4xl mb-2">🖥️</div>
@@ -196,3 +235,4 @@ export function EnvironmentManagerComponent() {
     </div>
   )
 }
+

@@ -1,4 +1,5 @@
 // src/api/environmentApi.ts
+import { UserSettingsInput } from '@/types/UserSettings';
 import { Environment, EnvironmentInput, EnvironmentUpdate } from '../types/Environment';
 
 const API_BASE_URL = 'http://localhost:5172'; // TODO: put in .env
@@ -127,6 +128,32 @@ export async function tryInstallComfyUI(comfyUIPath: string, branch: string = "m
   if (!response.ok) {
     const errorDetails = await response.json()
     console.error(`${response.status} - Failed to install ComfyUI: ${errorDetails.detail}`)
+    throw new Error(`${errorDetails.detail}`);
+  }
+  return response.json();
+}
+
+export async function getUserSettings() {
+  const response = await fetch(`${API_BASE_URL}/user-settings`);
+  if (!response.ok) {
+    const errorDetails = await response.json()
+    console.error(`${response.status} - Failed to get user settings: ${errorDetails.detail}`)
+    throw new Error(`${errorDetails.detail}`);
+  }
+  return response.json();
+}
+
+export async function updateUserSettings(settings: UserSettingsInput) {
+  const response = await fetch(`${API_BASE_URL}/user-settings`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(settings),
+  });
+  if (!response.ok) {
+    const errorDetails = await response.json()
+    console.error(`${response.status} - Failed to update user settings: ${errorDetails.detail}`)
     throw new Error(`${errorDetails.detail}`);
   }
   return response.json();

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -24,11 +24,12 @@ import { tryInstallComfyUI } from '@/api/environmentApi'
 import { CustomAlertDialog } from './CustomAlertDialog'
 import FormFieldComponent from '../form/FormFieldComponent'
 import MountConfigRow from '../form/MountConfigRow'
+import { UserSettings } from '@/types/UserSettings'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
 const dockerImageToReleaseMap = {
-  "latest": "comfyui:latest",
+  "latest": "comfyui:v0.3.4-base-cuda12.6.2-pytorch2.5.1",
   "v0.3.4": "comfyui:v0.3.4-base-cuda12.6.2-pytorch2.5.1",
   "v0.3.0": "comfyui:v0.3.0-base-cuda12.6.2-pytorch2.5.1",
   "v0.2.7": "comfyui:v0.2.7-base-cuda12.6.2-pytorch2.5.1",
@@ -44,7 +45,7 @@ const formSchema = z.object({
   release: z.enum(Object.keys(dockerImageToReleaseMap) as [string, ...string[]]),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
-  environmentType: z.enum(["Default", "Default + Copy Custom Nodes", "Isolated", "Custom"]),
+  environmentType: z.enum(["Default", "Default+", "Basic", "Isolated", "Custom"]),
   copyCustomNodes: z.boolean().default(false),
   command: z.string().optional(),
   port: z.string().optional(),
@@ -58,11 +59,12 @@ const formSchema = z.object({
 
 export interface CreateEnvironmentDialogProps {
   children: React.ReactNode
+  userSettings: UserSettings | null
   environments: Environment[]
   createEnvironmentHandler: (environment: EnvironmentInput) => Promise<void>
 }
 
-export default function CreateEnvironmentDialog({ children, environments, createEnvironmentHandler }: CreateEnvironmentDialogProps) {
+export default function CreateEnvironmentDialog({ children, userSettings, environments, createEnvironmentHandler }: CreateEnvironmentDialogProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [installComfyUIDialog, setInstallComfyUIDialog] = useState(false)
@@ -75,12 +77,12 @@ export default function CreateEnvironmentDialog({ children, environments, create
       name: "",
       release: "latest",
       image: "",
-      comfyUIPath: defaultComfyUIPath || "",
+      comfyUIPath: userSettings?.comfyui_path || defaultComfyUIPath || "",
       environmentType: "Default",
       copyCustomNodes: false,
-      command: "",
-      port: "8188",
-      runtime: "nvidia",
+      command: userSettings?.command || "",
+      port: String(userSettings?.port) || "8188",
+      runtime: String(userSettings?.runtime) as "nvidia" | "none" || "nvidia",
       mountConfig: [
         { directory: "user", action: "mount" },
         { directory: "models", action: "mount" },
@@ -89,6 +91,26 @@ export default function CreateEnvironmentDialog({ children, environments, create
       ]
     },
   })
+
+  useEffect(() => {
+    form.reset({
+      name: "",
+      release: "latest",
+      image: "",
+      comfyUIPath: userSettings?.comfyui_path || defaultComfyUIPath || "",
+      environmentType: "Default",
+      copyCustomNodes: false,
+      command: userSettings?.command || "",
+      port: String(userSettings?.port) || "8188",
+      runtime: String(userSettings?.runtime) as "nvidia" | "none" || "nvidia",
+      mountConfig: [
+        { directory: "user", action: "mount" },
+        { directory: "models", action: "mount" },
+        { directory: "output", action: "mount" },
+        { directory: "input", action: "mount" },
+      ]
+    })
+  }, [userSettings, form])
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -157,24 +179,35 @@ export default function CreateEnvironmentDialog({ children, environments, create
   }
 
   const handleEnvironmentTypeChange = (value: string) => {
-    form.setValue("environmentType", value as "Default" | "Default + Copy Custom Nodes" | "Isolated" | "Custom")
-    if (value === "Default") {
-      form.setValue("mountConfig", [
-        { directory: "user", action: "mount" },
-        { directory: "models", action: "mount" },
-        { directory: "output", action: "mount" },
-        { directory: "input", action: "mount" },
-      ])
-    } else if (value === "Isolated") {
-      form.setValue("mountConfig", [])
-    } else if (value === "Default + Copy Custom Nodes") {
-      form.setValue("mountConfig", [
-        { directory: "custom_nodes", action: "copy" },
-        { directory: "user", action: "mount" },
-        { directory: "models", action: "mount" },
-        { directory: "output", action: "mount" },
-        { directory: "input", action: "mount" },
-      ])
+    form.setValue("environmentType", value as "Default" | "Default+" | "Basic" | "Isolated" | "Custom")
+    switch (value) {
+      case "Default":
+        form.setValue("mountConfig", [
+          { directory: "user", action: "mount" },
+          { directory: "models", action: "mount" },
+          { directory: "output", action: "mount" },
+          { directory: "input", action: "mount" },
+        ])
+        break
+      case "Default+":
+        form.setValue("mountConfig", [
+          { directory: "custom_nodes", action: "copy" },
+          { directory: "user", action: "mount" },
+          { directory: "models", action: "mount" },
+          { directory: "output", action: "mount" },
+          { directory: "input", action: "mount" },
+        ])
+        break
+      case "Basic":
+        form.setValue("mountConfig", [
+          { directory: "models", action: "mount" },
+          { directory: "output", action: "mount" },
+          { directory: "input", action: "mount" },
+        ])
+        break
+      case "Isolated":
+        form.setValue("mountConfig", [])
+        break
     }
   }
 
@@ -310,14 +343,42 @@ export default function CreateEnvironmentDialog({ children, environments, create
                       >
                         <FormControl className="col-span-3">
                           <SelectTrigger>
-                            <SelectValue placeholder="Select environment type" />
+                            <SelectValue>
+                              {field.value}
+                            </SelectValue>
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Default">Default</SelectItem>
-                          <SelectItem value="Default + Copy Custom Nodes">Default + Copy Custom Nodes</SelectItem>
-                          <SelectItem value="Isolated">Isolated</SelectItem>
-                          <SelectItem value="Custom">Custom</SelectItem>
+                          <SelectItem value="Default">
+                            <div className="flex flex-col">
+                              <span className="font-medium">Default</span>
+                              <span className="text-xs text-muted-foreground">Mounts workflows, models, output, and input<br /> directories from your local ComfyUI installation.</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Default+">
+                            <div className="flex flex-col">
+                              <span className="font-medium">Default+</span>
+                              <span className="text-xs text-muted-foreground">Same as default, but also copies and installs custom<br /> nodes from your local ComfyUI installation.</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Basic">
+                            <div className="flex flex-col">
+                              <span className="font-medium">Basic</span>
+                              <span className="text-xs text-muted-foreground">Same as default, but without mounting workflows.</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Isolated">
+                            <div className="flex flex-col">
+                              <span className="font-medium">Isolated</span>
+                              <span className="text-xs text-muted-foreground">Creates an isolated environment with no mounts.</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Custom">
+                            <div className="flex flex-col">
+                              <span className="font-medium">Custom</span>
+                              <span className="text-xs text-muted-foreground">Allows for advanced configuration options</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage className="col-start-2 col-span-3" />
