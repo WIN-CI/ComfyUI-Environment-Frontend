@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
-import { Loader2, RefreshCcw, Settings } from 'lucide-react'
+import { ExternalLink, HelpCircle, Loader2, RefreshCcw, Settings } from 'lucide-react'
 import { Environment, EnvironmentInput } from '@/types/Environment'
 import CreateEnvironmentDialog from './dialogs/CreateEnvironmentDialog'
 import { useToast } from '@/hooks/use-toast'
@@ -167,20 +167,48 @@ export function EnvironmentManagerComponent() {
         </div>
       )}
 
-      <div className="flex items-center">
-        <CreateEnvironmentDialog userSettings={userSettings} environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
-          <Button className="mb-4">Create Environment</Button>
-        </CreateEnvironmentDialog>
+      <h1 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-blue-600 to-teal-600 text-transparent bg-clip-text title">
+        ComfyUI Environment Manager
+      </h1>
 
+      <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+        <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
+          <CreateEnvironmentDialog userSettings={userSettings} environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
+            <Button className="bg-blue-600 hover:bg-blue-700">Create Environment</Button>
+          </CreateEnvironmentDialog>
 
-        <Button className="mb-4 mx-2" onClick={async () => {
-          setIsLoading(true)
-          await updateEnvironments()
-        }}><RefreshCcw className="w-4 h-4" />Refresh</Button>
+          <Button 
+            className="bg-teal-600 hover:bg-teal-700"
+            onClick={async () => {
+              setIsLoading(true)
+              await updateEnvironments()
+              setIsLoading(false)
+            }}
+          >
+            <RefreshCcw className="w-4 h-4 mr-2" />Refresh
+          </Button>
 
-        <UserSettingsDialog updateUserSettingsHandler={updateUserSettingsHandler}>
-          <Button className="mb-4"><Settings className="w-4 h-4" />Settings</Button>
-        </UserSettingsDialog>
+          <UserSettingsDialog updateUserSettingsHandler={updateUserSettingsHandler}>
+            <Button className="bg-purple-600 hover:bg-purple-700"><Settings className="w-4 h-4 mr-2" />Settings</Button>
+          </UserSettingsDialog>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <a
+              href={`https://cyber-damselfly-b6c.notion.site/ComfyUI-Environment-Manager-14ffd5b1ca3b804abafbdb4bd6b8068e`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <Button className="bg-slate-600 hover:bg-slate-700">
+                  <ExternalLink className="w-4 h-4" />Documentation
+              </Button>
+            </a>
+
+          <a href='https://ko-fi.com/A0A616TJHD' target='_blank' rel="noopener noreferrer" className="mt-4 md:mt-0">
+            <img height='36' style={{border: '0px', height: '36px'}} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+          </a>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -159,4 +159,14 @@ export async function updateUserSettings(settings: UserSettingsInput) {
   return response.json();
 }
 
+export async function getComfyUIImageTags() {
+  const response = await fetch(`${API_BASE_URL}/images/tags`);
+  if (!response.ok) {
+    const errorDetails = await response.json()
+    console.error(`${response.status} - Failed to get ComfyUI image tags: ${errorDetails.detail}`)
+    throw new Error(`${errorDetails.detail}`);
+  }
+  return response.json();
+}
+
 // Add more functions for other API actions like update, delete, etc.

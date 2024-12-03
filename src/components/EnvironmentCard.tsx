@@ -70,6 +70,9 @@ export default function EnvironmentCard({
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {environment.metadata?.["base_image"] as string}
           </p>
+          {/* <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+            {new Date(Number(environment.metadata?.["created_at"]) * 1000).toLocaleString()}
+          </p> */}
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="flex gap-2">

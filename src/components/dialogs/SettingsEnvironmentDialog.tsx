@@ -15,7 +15,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { Loader2 } from 'lucide-react'
+import { Loader2, Calendar, Image, Copy, Hash, Folder, Terminal, Tag, Network, HardDrive } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Environment name is required" }),
@@ -70,7 +71,7 @@ export default function SettingsEnvironmentDialog({ children, environment, updat
           <DialogTitle>Environment Settings</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="name"
@@ -84,25 +85,36 @@ export default function SettingsEnvironmentDialog({ children, environment, updat
                 </FormItem>
               )}
             />
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold">About</h3>
-              <div className="space-y-1">
-                <p><strong>Created At:</strong> {new Date(Number(environment.metadata?.["created_at"]) * 1000).toLocaleString()}</p>
-                <p><strong>Base Image:</strong> {environment.metadata?.["base_image"] as string}</p>
-                <p><strong>Duplicate:</strong> {environment.duplicate ? 'Yes' : 'No'}</p>
-                <p><strong>Environment ID:</strong> {environment.id}</p>
-                <p><strong>ComfyUI Path:</strong> {environment.comfyui_path}</p>
-                <p><strong>Command:</strong> {environment.command || 'N/A'}</p>
-                <p><strong>ComfyUI Release:</strong> {environment.options?.["comfyui_release"] as string}</p>
-                <p><strong>Port:</strong> {environment.options?.["port"] as string}</p>
-                <p><strong>Mount Config:</strong></p>
-                <ul className="list-disc list-inside pl-4">
-                  {Object.entries(environment.options?.["mount_config"] as Record<string, string> || {}).map(([key, value]) => (
-                    <li key={key}>{key}: {value}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>About</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4">
+                  <InfoItem icon={<Calendar className="h-4 w-4" />} label="Created At" value={new Date(Number(environment.metadata?.["created_at"]) * 1000).toLocaleString()} />
+                  <InfoItem icon={<Image className="h-4 w-4" />} label="Base Image" value={environment.metadata?.["base_image"] as string} />
+                  <InfoItem icon={<Copy className="h-4 w-4" />} label="Duplicate" value={environment.duplicate ? 'Yes' : 'No'} />
+                  <InfoItem icon={<Hash className="h-4 w-4" />} label="Environment ID" value={environment.id || 'N/A'} />
+                  <InfoItem icon={<Folder className="h-4 w-4" />} label="ComfyUI Path" value={environment.comfyui_path || 'N/A'} />
+                  <InfoItem icon={<Terminal className="h-4 w-4" />} label="Command" value={environment.command || 'N/A'} />
+                  <InfoItem icon={<Tag className="h-4 w-4" />} label="ComfyUI Release" value={environment.options?.["comfyui_release"] as string} />
+                  <InfoItem icon={<Network className="h-4 w-4" />} label="Port" value={environment.options?.["port"] as string} />
+                </div>
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2 flex items-center">
+                    <HardDrive className="h-4 w-4 mr-2" />
+                    Mount Config
+                  </h4>
+                  <ul className="grid grid-cols-2 gap-2">
+                    {Object.entries(environment.options?.["mount_config"] as Record<string, string> || {}).map(([key, value]) => (
+                      <li key={key} className="text-sm">
+                        <span className="font-medium">{key}:</span> {value}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
             <div className="flex justify-end">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
@@ -119,6 +131,17 @@ export default function SettingsEnvironmentDialog({ children, environment, updat
         </Form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center space-x-2">
+      {icon}
+      <span className="text-sm">
+        <span className="font-medium">{label}:</span> {value}
+      </span>
+    </div>
   )
 }
 

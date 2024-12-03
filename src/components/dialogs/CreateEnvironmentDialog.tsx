@@ -20,7 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
-import { tryInstallComfyUI } from '@/api/environmentApi'
+import { getComfyUIImageTags, tryInstallComfyUI } from '@/api/environmentApi'
 import { CustomAlertDialog } from './CustomAlertDialog'
 import FormFieldComponent from '../form/FormFieldComponent'
 import MountConfigRow from '../form/MountConfigRow'
@@ -28,21 +28,23 @@ import { UserSettings } from '@/types/UserSettings'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
-const dockerImageToReleaseMap = {
-  "latest": "comfyui:v0.3.4-base-cuda12.6.2-pytorch2.5.1",
-  "v0.3.4": "comfyui:v0.3.4-base-cuda12.6.2-pytorch2.5.1",
-  "v0.3.0": "comfyui:v0.3.0-base-cuda12.6.2-pytorch2.5.1",
-  "v0.2.7": "comfyui:v0.2.7-base-cuda12.6.2-pytorch2.5.1",
-  "v0.2.6": "comfyui:v0.2.6-base-cuda12.6.2-pytorch2.5.1",
-  "v0.2.5": "comfyui:v0.2.5-base-cuda12.6.2-pytorch2.5.1",
-}
+const COMFYUI_IMAGE_NAME = "akatzai/comfyui-env"
 
 // Get the inverse mapping of dockerImageToReleaseMap
-const comfyUIReleasesFromImageMap = Object.fromEntries(Object.entries(dockerImageToReleaseMap).map(([release, image]) => [image, release]))
+// const comfyUIReleasesFromImageMap = Object.fromEntries(Object.entries(dockerImageToReleaseMap).map(([release, image]) => [image, release]))
+
+const getLatestComfyUIReleaseFromBranch = async (branch: string, releases: string[]) => {
+  if (branch === "latest") {
+    // Filter out "latest" from the releases array, then return the first one
+    const filteredReleases = releases.filter(release => release !== "latest")
+    return filteredReleases[0]
+  }
+  return branch
+}
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Environment name is required" }),
-  release: z.enum(Object.keys(dockerImageToReleaseMap) as [string, ...string[]]),
+  release: z.string().nonempty({ message: "Release is required" }),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
   environmentType: z.enum(["Default", "Default+", "Basic", "Isolated", "Custom"]),
@@ -69,6 +71,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   const [isLoading, setIsLoading] = useState(false)
   const [installComfyUIDialog, setInstallComfyUIDialog] = useState(false)
   const [isInstallingComfyUILoading, setIsInstallingComfyUILoading] = useState(false)
+  const [releaseOptions, setReleaseOptions] = useState<string[]>(["latest"])
   const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -91,6 +94,18 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       ]
     },
   })
+
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      getComfyUIImageTags().then((result) => {
+        console.log(result.tags)
+        // Convert tags from object to array and add "latest" to the beginning
+        setReleaseOptions(["latest", ...Object.values(result.tags).map(tag => String(tag))])
+      }).catch((error) => {
+        console.error(error)
+      })
+    }
+  }, [isCreateModalOpen])
 
   useEffect(() => {
     form.reset({
@@ -129,13 +144,14 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    let release = await getLatestComfyUIReleaseFromBranch(values.release, releaseOptions)
     const newEnvironment: EnvironmentInput = {
       name: values.name,
-      image: values.image || dockerImageToReleaseMap[values.release as keyof typeof dockerImageToReleaseMap],
+      image: values.image || `${COMFYUI_IMAGE_NAME}:${release}`,
       command: values.command,
       comfyui_path: values.comfyUIPath,
       options: {
-        "comfyui_release": values.release,
+        "comfyui_release": release,
         "port": values.port,
         "mount_config": Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action])),
         "runtime": values.runtime,
@@ -218,14 +234,13 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   const handleInstallComfyUI = async () => {
     try {
       console.log(form.getValues("comfyUIPath"))
-      let branch = comfyUIReleasesFromImageMap[form.getValues("image") as keyof typeof comfyUIReleasesFromImageMap]
+      let branch = form.getValues("release")
+      branch = await getLatestComfyUIReleaseFromBranch(branch, releaseOptions)
+      console.log(branch)
       setIsInstallingComfyUILoading(true)
-      // If branch is latest, we don't need to specify a branch
-      if (branch === "latest") {
-        await tryInstallComfyUI(form.getValues("comfyUIPath"))
-      } else {
-        await tryInstallComfyUI(form.getValues("comfyUIPath"), branch)
-      }
+
+      await tryInstallComfyUI(form.getValues("comfyUIPath"), branch)
+      
       // On success, append "ComfyUI" to the comfyui path TODO: This is a hack to make sure the path is correct
       const currentPath = form.getValues("comfyUIPath");
       const separator = currentPath.includes("\\") ? "\\" : "/";
@@ -304,7 +319,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.keys(dockerImageToReleaseMap).map(
+                          {releaseOptions.map(
                             (release) => (
                               <SelectItem key={release} value={release}>
                                 {release}
@@ -319,7 +334,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
                 />
                 <FormFieldComponent
                   control={form.control}
-                  name="dockerImage"
+                  name="image"
                   label="Custom Docker Image"
                   placeholder="Optional: DockerHub image URL"
                 />
