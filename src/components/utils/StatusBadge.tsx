@@ -19,7 +19,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 
   return (
     <span className={cn(
-      "absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium",
+      "px-2 py-1 rounded-full text-xs font-medium",
       badgeColor,
       className
     )}>

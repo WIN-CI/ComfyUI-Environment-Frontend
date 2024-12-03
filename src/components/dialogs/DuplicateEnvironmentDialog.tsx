@@ -20,109 +20,37 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
+import FormFieldComponent from '../form/FormFieldComponent'
+import MountConfigRow from '../form/MountConfigRow'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
-const dockerImageToReleaseMap = {
-  "latest": "comfyui-v0.3.4-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.3.4": "comfyui-v0.3.4-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.3.0": "comfyui-v0.3.0-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.2.7": "comfyui-v0.2.7-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.2.6": "comfyui-v0.2.6-base-cuda12.6.2-pytorch2.5.1:latest",
-  "v0.2.5": "comfyui-v0.2.5-base-cuda12.6.2-pytorch2.5.1:latest",
-}
-
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Environment name is required" }),
-  release: z.enum(Object.keys(dockerImageToReleaseMap) as [string, ...string[]]),
+  name: z.string()
+    .min(2, { message: "Environment name is required. Minimum length is 2 characters." })
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, { message: "Invalid environment name format. Only alphanumeric characters, dots, underscores, and hyphens are allowed." }),
+  release: z.string().optional(),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
-  environmentType: z.enum(["Default", "Isolated", "Custom"]),
-  copyCustomNodes: z.boolean().default(false),
   command: z.string().optional(),
   port: z.string().optional(),
+  runtime: z.enum(["nvidia", "none"]),
+  environmentType: z.enum(["Auto", "Custom"]),
   mountConfig: z.array(z.object({
     directory: z.string(),
     action: z.enum(["mount", "copy"])
   }))
 })
 
-// Reusable FormFieldComponent
-const FormFieldComponent = ({ control, name, label, placeholder, type = "text", children }: any) => (
-  <FormField
-    control={control}
-    name={name}
-    render={({ field }) => (
-      <FormItem className="grid grid-cols-4 items-center gap-4">
-        <FormLabel className="text-right">{label}</FormLabel>
-        <FormControl className="col-span-3">
-          {children || <Input {...field} type={type} placeholder={placeholder} />}
-        </FormControl>
-        <FormMessage className="col-start-2 col-span-3" />
-      </FormItem>
-    )}
-  />
-);
 
-const MountConfigRow = ({ index, remove, control, onActionChange }: any) => (
-  <div className="flex items-center space-x-2 mb-2">
-    <div className="w-full">
-    <FormField
-      control={control}
-      name={`mountConfig.${index}.directory`}
-      render={({ field }) => (
-        <FormItem>
-          <FormControl>
-            <Input {...field} placeholder="Directory name" onChange={(e) => {
-              field.onChange(e)
-              onActionChange()
-            }} />
-          </FormControl>
-        </FormItem>
-      )}
-    />
-    </div>
-    <div className="w-40">
-      <FormField
-        control={control}
-        name={`mountConfig.${index}.action`}
-        render={({ field }) => (
-          <FormItem>
-            <Select onValueChange={(value) => {
-              field.onChange(value)
-              onActionChange()
-            }} value={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="mount">Mount</SelectItem>
-                <SelectItem value="copy">Copy</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormItem>
-          
-        )}
-      />
-    </div>  
-    <Button type="button" variant="ghost" onClick={() => {
-      remove(index)
-      onActionChange()
-    }}>
-      <X className="h-4 w-4" />
-    </Button>
-  </div>
-)
-
-export interface CreateEnvironmentDialogProps {
+export interface DuplicateEnvironmentDialogProps {
   children: React.ReactNode
+  environment: Environment
   environments: Environment[]
-  createEnvironmentHandler: (environment: EnvironmentInput) => Promise<void>
+  duplicateEnvironmentHandler: (id: string, environment: EnvironmentInput) => Promise<void>
 }
 
-export default function CreateEnvironmentDialog({ children, environments, createEnvironmentHandler }: CreateEnvironmentDialogProps) {
+export default function DuplicateEnvironmentDialog({ children, environment, environments, duplicateEnvironmentHandler }: DuplicateEnvironmentDialogProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
@@ -130,21 +58,17 @@ export default function CreateEnvironmentDialog({ children, environments, create
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      release: "latest",
+      name: environment.name + "-copy",
+      release: environment.options?.["comfyui_release"] as string || "latest",
       image: "",
-      comfyUIPath: defaultComfyUIPath || "",
-      environmentType: "Default",
-      copyCustomNodes: false,
-      command: "",
-      port: "8188",
-      mountConfig: [
-        { directory: "custom_nodes", action: "copy" },
-        { directory: "user", action: "mount" },
-        { directory: "models", action: "mount" },
-        { directory: "output", action: "mount" },
-        { directory: "input", action: "mount" },
-      ]
+      comfyUIPath: environment.comfyui_path || defaultComfyUIPath || "",
+      command: environment.command || "",
+      port: environment.options?.["port"] as string || "8188",
+      runtime: environment.options?.["runtime"] as "nvidia" | "none" || "nvidia",
+      environmentType: "Auto",
+      mountConfig: Object.entries(environment.options?.["mount_config"] || {})
+        .filter(([_, action]) => action === "mount")
+        .map(([directory, action]) => ({ directory, action: action as "mount" })),
     },
   })
 
@@ -167,13 +91,14 @@ export default function CreateEnvironmentDialog({ children, environments, create
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const newEnvironment: EnvironmentInput = {
       name: values.name,
-      image: values.image || dockerImageToReleaseMap[values.release as keyof typeof dockerImageToReleaseMap],
+      image: "", // TODO: Image not needed for duplicate
       command: values.command,
       comfyui_path: values.comfyUIPath,
       options: {
         "comfyui_release": values.release,
         "port": values.port,
-        "mount_config": JSON.stringify(Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action])))
+        "mount_config": Object.fromEntries(values.mountConfig.map(({ directory, action }) => [directory, action])),
+        "runtime": values.runtime,
       }
     }
 
@@ -185,7 +110,7 @@ export default function CreateEnvironmentDialog({ children, environments, create
       setIsLoading(true)
 
       // Create the environment
-      await createEnvironmentHandler(newEnvironment)
+      await duplicateEnvironmentHandler(environment.id || "", newEnvironment)
 
       // Stop loading state
       setIsLoading(false)
@@ -209,17 +134,19 @@ export default function CreateEnvironmentDialog({ children, environments, create
   }
 
   const handleEnvironmentTypeChange = (value: string) => {
-    form.setValue("environmentType", value as "Default" | "Isolated" | "Custom")
-    if (value === "Default") {
-      form.setValue("mountConfig", [
-        { directory: "custom_nodes", action: "copy" },
-        { directory: "user", action: "mount" },
-        { directory: "models", action: "mount" },
-        { directory: "output", action: "mount" },
-        { directory: "input", action: "mount" },
-      ])
-    } else if (value === "Isolated") {
-      form.setValue("mountConfig", [])
+    form.setValue("environmentType", value as "Auto" | "Custom");
+    const prev_mount_config = environment.options?.["mount_config"] || {};
+
+    if (value === "Auto") {
+      const filteredMountConfig = Object.entries(prev_mount_config)
+        .filter(([_, action]) => action === "mount")
+        .map(([directory, action]) => ({ directory, action }));
+
+      form.setValue("mountConfig", filteredMountConfig as { directory: string; action: "mount" | "copy" }[]);
+    }
+    else {
+      form.setValue("mountConfig", Object.entries(prev_mount_config)
+        .map(([directory, action]) => ({ directory, action })) as { directory: string; action: "mount" | "copy" }[]);
     }
   }
 
@@ -234,7 +161,7 @@ export default function CreateEnvironmentDialog({ children, environments, create
       </DialogTrigger>
       <DialogContent className='max-h-[80vh] overflow-y-auto dialog-content'>
         <DialogHeader>
-          <DialogTitle>Create New Environment</DialogTitle>
+          <DialogTitle>Duplicate Environment</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <div className="relative">
@@ -245,29 +172,6 @@ export default function CreateEnvironmentDialog({ children, environments, create
             )}
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormFieldComponent control={form.control} name="name" label="Name" placeholder="" />
-              <FormField
-                control={form.control}
-                name="release"
-                render={({ field }) => (
-                  <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">ComfyUI Release</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl className="col-span-3">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a release" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.keys(dockerImageToReleaseMap).map((release) => (
-                          <SelectItem key={release} value={release}>{release}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="col-start-2 col-span-3" />
-                  </FormItem>
-                )}
-              />
-              <FormFieldComponent control={form.control} name="dockerImage" label="Custom Docker Image" placeholder="Optional: DockerHub image URL" />
               <FormFieldComponent control={form.control} name="comfyUIPath" label="Path to ComfyUI" placeholder="/path/to/ComfyUI" />
               <FormField
                 control={form.control}
@@ -278,13 +182,25 @@ export default function CreateEnvironmentDialog({ children, environments, create
                     <Select onValueChange={handleEnvironmentTypeChange} value={field.value}>
                       <FormControl className="col-span-3">
                         <SelectTrigger>
-                          <SelectValue placeholder="Select environment type" />
+                          <SelectValue>
+                            {field.value}
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Default">Default</SelectItem>
-                        <SelectItem value="Isolated">Isolated</SelectItem>
-                        <SelectItem value="Custom">Custom</SelectItem>
+                        <SelectItem value="Auto">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Auto</span>
+                            <span className="text-xs text-muted-foreground">Keeps the same mount configuration as the<br /> original environment, excluding copied directories.</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Custom">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Custom</span>
+                            <span className="text-xs text-muted-foreground">Allows for advanced configuration options.</span>
+                          </div>
+                        </SelectItem>
+
                       </SelectContent>
                     </Select>
                     <FormMessage className="col-start-2 col-span-3" />
@@ -296,28 +212,27 @@ export default function CreateEnvironmentDialog({ children, environments, create
                   <AccordionTrigger className="text-md font-semibold py-2 px-2">Advanced Options</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4 px-4">
-                      {/* <FormField
+                      <FormField
                         control={form.control}
-                        name="copyCustomNodes"
+                        name="runtime"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Copy Custom Nodes From Local
-                              </FormLabel>
-                              <FormDescription>
-                                This will copy custom nodes from your local ComfyUI installation
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
+                          <FormItem className="grid grid-cols-4 items-center gap-4">
+                            <FormLabel className="text-right">Runtime</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl className="col-span-3">
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select runtime" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="nvidia">Nvidia</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage className="col-start-2 col-span-3" />
                           </FormItem>
                         )}
-                      /> */}
+                      />
                       <FormFieldComponent control={form.control} name="command" label="Command" placeholder="Additional command" />
                       <FormFieldComponent control={form.control} name="port" label="Port" placeholder="Port number" type="number" />
                       <div>

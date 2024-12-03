@@ -1,4 +1,4 @@
-import { EnvironmentManagerComponent } from './components/environment-manager'
+import { EnvironmentManagerComponent } from './components/EnvironmentManager'
 import { Toaster } from "@/components/ui/toaster"
 
 function App() {
