@@ -167,9 +167,11 @@ export function EnvironmentManagerComponent() {
         </div>
       )}
 
+
       <h1 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-blue-600 to-teal-600 text-transparent bg-clip-text title">
         ComfyUI Environment Manager
       </h1>
+
 
       <div className="flex flex-col md:flex-row items-center justify-between mb-8">
         <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
@@ -211,7 +213,7 @@ export function EnvironmentManagerComponent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {environments.map((env: Environment) => (
           <EnvironmentCard
             key={env.id}
@@ -226,6 +228,12 @@ export function EnvironmentManagerComponent() {
             deactivateEnvironmentHandler={deactivateEnvironmentHandler}
           />
         ))}
+      </div>
+      {/* Footer at absolute bottom left */}
+      <div className="absolute bottom-4 left-4 flex flex-col items-center justify-center">
+        <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
+          Made with 💜 by <a href="https://akatz.ai" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-teal-600">Akatz</a>
+        </p>
       </div>
     </div>
   )
