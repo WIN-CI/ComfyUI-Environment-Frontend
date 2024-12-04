@@ -169,4 +169,66 @@ export async function getComfyUIImageTags() {
   return response.json();
 }
 
+export async function checkImageExists(image: string) {
+  const encodedImage = encodeURIComponent(image)
+  const response = await fetch(`${API_BASE_URL}/images/exists?image=${encodedImage}`);
+  if (!response.ok) {
+    return false;
+  }
+  return true;
+}
+
+// export async function pullImageStream(image: string, onProgress: (progress: number) => void) {
+//   const encodedImage = encodeURIComponent(image)
+//   const eventSource = new EventSource(`${API_BASE_URL}/images/pull?image=${encodedImage}`);
+
+//   eventSource.onmessage = (event) => {
+//     const progress = JSON.parse(event.data)
+//     onProgress(progress.progress);
+//   };
+
+//   eventSource.onerror = (err) => {
+//       console.error("EventSource failed:", err);
+//       eventSource.close();
+//   };
+
+//   return () => {
+//     eventSource.close();
+//   };
+// }
+
+export function pullImageStream(image: string, onProgress: (progress: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const encodedImage = encodeURIComponent(image)
+    const eventSource = new EventSource(`${API_BASE_URL}/images/pull?image=${encodedImage}`);
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.error) {
+        console.error("Error:", data.error);
+        eventSource.close();
+        reject(data.error);
+        return;
+      }
+
+      if (data.progress !== undefined) {
+        onProgress(data.progress);
+      }
+
+      if (data.status === 'completed') {
+        console.log("Image pull completed.");
+        eventSource.close();
+        resolve();
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("EventSource failed:", err);
+      eventSource.close();
+      reject(err);
+    };
+  });
+}
+
 // Add more functions for other API actions like update, delete, etc.
