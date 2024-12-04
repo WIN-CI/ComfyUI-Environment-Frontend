@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -20,11 +20,13 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
-import { getComfyUIImageTags, tryInstallComfyUI } from '@/api/environmentApi'
+import { checkImageExists, getComfyUIImageTags, pullImageStream, tryInstallComfyUI } from '@/api/environmentApi'
 import { CustomAlertDialog } from './CustomAlertDialog'
 import FormFieldComponent from '../form/FormFieldComponent'
 import MountConfigRow from '../form/MountConfigRow'
 import { UserSettings } from '@/types/UserSettings'
+import { Progress } from '../ui/progress'
+import ImagePullDialog from './PullImageDialog'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
@@ -72,6 +74,8 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   const [installComfyUIDialog, setInstallComfyUIDialog] = useState(false)
   const [isInstallingComfyUILoading, setIsInstallingComfyUILoading] = useState(false)
   const [releaseOptions, setReleaseOptions] = useState<string[]>(["latest"])
+  const [pullImageDialog, setPullImageDialog] = useState(false)
+  
   const { toast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -164,6 +168,14 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
 
       // Start loading state
       setIsLoading(true)
+
+      // Check if the image exists
+      const imageExists = await checkImageExists(newEnvironment.image)
+      if (!imageExists) {
+        // Open a dialog to ask the user if they want to pull the image
+        setPullImageDialog(true)
+        return
+      }
 
       // Create the environment
       await createEnvironmentHandler(newEnvironment)
@@ -275,7 +287,13 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         onAction={handleInstallComfyUI}
         variant="default"
         loading={isInstallingComfyUILoading}
-        />
+      />
+
+      <ImagePullDialog
+        image={form.getValues("image") || `${COMFYUI_IMAGE_NAME}:${form.getValues("release")}`}
+        open={pullImageDialog}
+        onOpenChange={setPullImageDialog}
+      />
 
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <DialogTrigger asChild>{children}</DialogTrigger>
