@@ -116,6 +116,20 @@ export function connectToLogStream(environmentId: string, onLogReceived: (log: s
   };
 }
 
+export async function checkValidComfyUIPath(comfyUIPath: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE_URL}/valid-comfyui-path`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ path: comfyUIPath }),
+  });
+  if (!response.ok) {
+    return false;
+  }
+  return true;
+}
+
 export async function tryInstallComfyUI(comfyUIPath: string, branch: string = "master") {
   const response = await fetch(`${API_BASE_URL}/install-comfyui`, {
     method: 'POST',
@@ -177,25 +191,6 @@ export async function checkImageExists(image: string) {
   }
   return true;
 }
-
-// export async function pullImageStream(image: string, onProgress: (progress: number) => void) {
-//   const encodedImage = encodeURIComponent(image)
-//   const eventSource = new EventSource(`${API_BASE_URL}/images/pull?image=${encodedImage}`);
-
-//   eventSource.onmessage = (event) => {
-//     const progress = JSON.parse(event.data)
-//     onProgress(progress.progress);
-//   };
-
-//   eventSource.onerror = (err) => {
-//       console.error("EventSource failed:", err);
-//       eventSource.close();
-//   };
-
-//   return () => {
-//     eventSource.close();
-//   };
-// }
 
 export function pullImageStream(image: string, onProgress: (progress: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {

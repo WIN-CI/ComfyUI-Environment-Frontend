@@ -20,7 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2, X } from 'lucide-react'
-import { checkImageExists, getComfyUIImageTags, pullImageStream, tryInstallComfyUI } from '@/api/environmentApi'
+import { checkImageExists, checkValidComfyUIPath, getComfyUIImageTags, pullImageStream, tryInstallComfyUI } from '@/api/environmentApi'
 import { CustomAlertDialog } from './CustomAlertDialog'
 import FormFieldComponent from '../form/FormFieldComponent'
 import MountConfigRow from '../form/MountConfigRow'
@@ -104,7 +104,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       getComfyUIImageTags().then((result) => {
         console.log(result.tags)
         // Convert tags from object to array and add "latest" to the beginning
-        setReleaseOptions(["latest", ...Object.values(result.tags).map(tag => String(tag))])
+        setReleaseOptions(Object.values(result.tags).map(tag => String(tag)))
       }).catch((error) => {
         console.error(error)
       })
@@ -169,6 +169,14 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       // Start loading state
       setIsLoading(true)
 
+      // Check if the comfyui path is valid
+      const validComfyUIPath = await checkValidComfyUIPath(newEnvironment.comfyui_path || "")
+      if (!validComfyUIPath) {
+        // Open a dialog to ask the user if they want to install ComfyUI
+        setInstallComfyUIDialog(true)
+        return
+      }
+
       // Check if the image exists
       const imageExists = await checkImageExists(newEnvironment.image)
       if (!imageExists) {
@@ -191,16 +199,11 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       })
     } catch (error: any) {
       console.log(error.message)
-      if (error.message === "No valid ComfyUI installation found.") {
-        setInstallComfyUIDialog(true)
-      } else {
-        console.error(error)
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        })
-      }
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -285,6 +288,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         cancelText="No"
         actionText="Yes"
         onAction={handleInstallComfyUI}
+        onCancel={() => setInstallComfyUIDialog(false)}
         variant="default"
         loading={isInstallingComfyUILoading}
       />

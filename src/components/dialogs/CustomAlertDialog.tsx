@@ -17,6 +17,7 @@ export interface CustomAlertDialogProps {
   cancelText: string
   actionText: string
   onAction: () => void
+  onCancel: () => void
   children?: React.ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -24,7 +25,7 @@ export interface CustomAlertDialogProps {
   loading?: boolean
 }
 
-export function CustomAlertDialog({ title, description, cancelText, actionText, onAction, children, open, onOpenChange, variant = "destructive", loading = false }: CustomAlertDialogProps) {
+export function CustomAlertDialog({ title, description, cancelText, actionText, onAction, onCancel, children, open, onOpenChange, variant = "destructive", loading = false }: CustomAlertDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogTrigger asChild>
@@ -38,7 +39,7 @@ export function CustomAlertDialog({ title, description, cancelText, actionText, 
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading} onClick={onCancel}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction onClick={onAction} variant={variant} disabled={loading}>{loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> loading...</>) : actionText}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
