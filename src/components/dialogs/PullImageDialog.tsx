@@ -8,9 +8,10 @@ interface ImagePullDialogProps {
   image: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess: () => void
 }
 
-export default function ImagePullDialog({ image, open, onOpenChange }: ImagePullDialogProps) {
+export default function ImagePullDialog({ image, open, onOpenChange, onSuccess }: ImagePullDialogProps) {
   const [isPulling, setIsPulling] = useState(false)
   const [progress, setProgress] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
@@ -35,6 +36,7 @@ export default function ImagePullDialog({ image, open, onOpenChange }: ImagePull
         setProgress(progress)
       })
       setStatusText("Download complete")
+      onSuccess()
     } catch (error) {
       console.error(error)
       setStatusText("Error downloading image: Check if it exists on Docker Hub")

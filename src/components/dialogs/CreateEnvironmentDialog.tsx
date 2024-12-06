@@ -35,13 +35,12 @@ const COMFYUI_IMAGE_NAME = "akatzai/comfyui-env"
 // Get the inverse mapping of dockerImageToReleaseMap
 // const comfyUIReleasesFromImageMap = Object.fromEntries(Object.entries(dockerImageToReleaseMap).map(([release, image]) => [image, release]))
 
-const getLatestComfyUIReleaseFromBranch = async (branch: string, releases: string[]) => {
+const getLatestComfyUIReleaseFromBranch = (branch: string, releases: string[]) => {
   if (branch === "latest") {
-    // Filter out "latest" from the releases array, then return the first one
-    const filteredReleases = releases.filter(release => release !== "latest")
-    return filteredReleases[0]
+    const filteredReleases = releases.filter(release => release !== "latest");
+    return filteredReleases[0] || "latest"; // fallback to latest if none found
   }
-  return branch
+  return branch;
 }
 
 const formSchema = z.object({
@@ -75,6 +74,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   const [isInstallingComfyUILoading, setIsInstallingComfyUILoading] = useState(false)
   const [releaseOptions, setReleaseOptions] = useState<string[]>(["latest"])
   const [pullImageDialog, setPullImageDialog] = useState(false)
+  const [pendingEnvironment, setPendingEnvironment] = useState<EnvironmentInput | null>(null);
   
   const { toast } = useToast()
 
@@ -104,7 +104,10 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       getComfyUIImageTags().then((result) => {
         console.log(result.tags)
         // Convert tags from object to array and add "latest" to the beginning
-        setReleaseOptions(Object.values(result.tags).map(tag => String(tag)))
+        const tagsArray = Object.values(result.tags).map(tag => String(tag));
+        const filteredTags = tagsArray.filter(tag => tag !== "latest");
+        setReleaseOptions(["latest", ...filteredTags]);
+        console.log(Object.values(result.tags).map(tag => String(tag)))
       }).catch((error) => {
         console.error(error)
       })
@@ -148,7 +151,9 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    let release = await getLatestComfyUIReleaseFromBranch(values.release, releaseOptions)
+    console.log(`onSubmit: ${JSON.stringify(values)}`)
+    let release = getLatestComfyUIReleaseFromBranch(values.release, releaseOptions)
+    console.log(release)
     const newEnvironment: EnvironmentInput = {
       name: values.name,
       image: values.image || `${COMFYUI_IMAGE_NAME}:${release}`,
@@ -169,34 +174,8 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       // Start loading state
       setIsLoading(true)
 
-      // Check if the comfyui path is valid
-      const validComfyUIPath = await checkValidComfyUIPath(newEnvironment.comfyui_path || "")
-      if (!validComfyUIPath) {
-        // Open a dialog to ask the user if they want to install ComfyUI
-        setInstallComfyUIDialog(true)
-        return
-      }
-
-      // Check if the image exists
-      const imageExists = await checkImageExists(newEnvironment.image)
-      if (!imageExists) {
-        // Open a dialog to ask the user if they want to pull the image
-        setPullImageDialog(true)
-        return
-      }
-
-      // Create the environment
-      await createEnvironmentHandler(newEnvironment)
-
-      // Stop loading state
-      setIsLoading(false)
-
-      setIsCreateModalOpen(false)
-      resetForm()
-      toast({
-        title: "Success",
-        description: "Environment created successfully",
-      })
+      setPendingEnvironment(newEnvironment)
+      await continueCreateEnvironment(newEnvironment)
     } catch (error: any) {
       console.log(error.message)
       toast({
@@ -208,6 +187,47 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       setIsLoading(false)
     }
   }
+
+  const continueCreateEnvironment = async (environment: EnvironmentInput | null) => {
+    if (!environment) return;
+    try {
+      const validComfyUIPath = await checkValidComfyUIPath(environment.comfyui_path || "");
+      if (!validComfyUIPath) {
+        setInstallComfyUIDialog(true);
+        setIsLoading(false);
+        return; // Early return, no cleanup here
+      }
+  
+      const imageExists = await checkImageExists(environment.image);
+      if (!imageExists) {
+        setPullImageDialog(true);
+        setIsLoading(false);
+        return; // Early return, no cleanup here
+      }
+  
+      // Create environment
+      await createEnvironmentHandler(environment);
+      setIsCreateModalOpen(false);
+      resetForm();
+      toast({
+        title: "Success",
+        description: "Environment created successfully",
+      });
+  
+      // Cleanup after success
+      setIsLoading(false);
+      setPendingEnvironment(null);
+    } catch (error: any) {
+      // Handle error
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      setPendingEnvironment(null);
+    }
+  };
 
   const handleEnvironmentTypeChange = (value: string) => {
     form.setValue("environmentType", value as "Default" | "Default+" | "Basic" | "Isolated" | "Custom")
@@ -250,31 +270,37 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
     try {
       console.log(form.getValues("comfyUIPath"))
       let branch = form.getValues("release")
-      branch = await getLatestComfyUIReleaseFromBranch(branch, releaseOptions)
+      branch = getLatestComfyUIReleaseFromBranch(branch, releaseOptions)
       console.log(branch)
       setIsInstallingComfyUILoading(true)
 
       await tryInstallComfyUI(form.getValues("comfyUIPath"), branch)
-      
-      // On success, append "ComfyUI" to the comfyui path TODO: This is a hack to make sure the path is correct
-      const currentPath = form.getValues("comfyUIPath");
-      const separator = currentPath.includes("\\") ? "\\" : "/";
-      const newPath = currentPath.endsWith(separator) ? currentPath : currentPath + separator;
-      form.setValue("comfyUIPath", newPath + "ComfyUI");
+
+      setInstallComfyUIDialog(false);
+      setIsInstallingComfyUILoading(false);
+      setIsLoading(true);
       toast({
         title: "Success",
         description: "ComfyUI installed successfully",
       })
+      await continueCreateEnvironment(pendingEnvironment);
+      // On success, append "ComfyUI" to the comfyui path TODO: This is a hack to make sure the path is correct
+      // const currentPath = form.getValues("comfyUIPath");
+      // const separator = currentPath.includes("\\") ? "\\" : "/";
+      // const newPath = currentPath.endsWith(separator) ? currentPath : currentPath + separator;
+      // form.setValue("comfyUIPath", newPath + "ComfyUI");
+      
     } catch (error: any) {
+      setIsInstallingComfyUILoading(false);
+      setInstallComfyUIDialog(false);
+      setPendingEnvironment(null);
+      setIsLoading(false);
       console.error(error)
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       })
-    } finally {
-      setIsInstallingComfyUILoading(false)
-      setInstallComfyUIDialog(false)
     }
   }
 
@@ -294,9 +320,20 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       />
 
       <ImagePullDialog
-        image={form.getValues("image") || `${COMFYUI_IMAGE_NAME}:${form.getValues("release")}`}
+        image={pendingEnvironment?.image || ""}
         open={pullImageDialog}
-        onOpenChange={setPullImageDialog}
+        onOpenChange={(open) => {
+          setPullImageDialog(open);
+          if (!open) {
+            setPendingEnvironment(null);
+            setIsLoading(false);
+          }
+        }}
+        onSuccess={async () => {
+          setPullImageDialog(false);
+          setIsLoading(true);
+          await continueCreateEnvironment(pendingEnvironment);
+        }}
       />
 
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
