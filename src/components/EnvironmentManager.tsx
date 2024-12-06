@@ -19,7 +19,7 @@ import UserSettingsDialog from './dialogs/UserSettingsDialog'
 import { UserSettings } from '@/types/UserSettings'
 import EnvironmentCard from './EnvironmentCard'
 
-const POLL_INTERVAL = 5000
+const POLL_INTERVAL = 2000
 
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])
@@ -135,6 +135,13 @@ export function EnvironmentManagerComponent() {
       throw error
     }
   }
+
+  // Get the user settings on mount
+  useEffect(() => {
+    getUserSettings().then((settings) => {
+      setUserSettings(settings)
+    })
+  }, [])
 
   // Poll every 5 seconds to refresh the environments
   useEffect(() => {
