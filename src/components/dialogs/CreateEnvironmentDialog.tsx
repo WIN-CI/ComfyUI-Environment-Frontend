@@ -35,7 +35,7 @@ const COMFYUI_IMAGE_NAME = "akatzai/comfyui-env"
 // Get the inverse mapping of dockerImageToReleaseMap
 // const comfyUIReleasesFromImageMap = Object.fromEntries(Object.entries(dockerImageToReleaseMap).map(([release, image]) => [image, release]))
 
-const getLatestComfyUIReleaseFromBranch = async (branch: string, releases: string[]) => {
+const getLatestComfyUIReleaseFromBranch = (branch: string, releases: string[]) => {
   if (branch === "latest") {
     // Filter out "latest" from the releases array, then return the first one
     const filteredReleases = releases.filter(release => release !== "latest")
@@ -105,6 +105,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         console.log(result.tags)
         // Convert tags from object to array and add "latest" to the beginning
         setReleaseOptions(Object.values(result.tags).map(tag => String(tag)))
+        console.log(Object.values(result.tags).map(tag => String(tag)))
       }).catch((error) => {
         console.error(error)
       })
@@ -148,7 +149,8 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    let release = await getLatestComfyUIReleaseFromBranch(values.release, releaseOptions)
+    let release = getLatestComfyUIReleaseFromBranch(values.release, releaseOptions)
+    console.log(release)
     const newEnvironment: EnvironmentInput = {
       name: values.name,
       image: values.image || `${COMFYUI_IMAGE_NAME}:${release}`,
@@ -250,7 +252,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
     try {
       console.log(form.getValues("comfyUIPath"))
       let branch = form.getValues("release")
-      branch = await getLatestComfyUIReleaseFromBranch(branch, releaseOptions)
+      branch = getLatestComfyUIReleaseFromBranch(branch, releaseOptions)
       console.log(branch)
       setIsInstallingComfyUILoading(true)
 

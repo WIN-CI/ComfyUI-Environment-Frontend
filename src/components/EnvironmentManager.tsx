@@ -19,6 +19,8 @@ import UserSettingsDialog from './dialogs/UserSettingsDialog'
 import { UserSettings } from '@/types/UserSettings'
 import EnvironmentCard from './EnvironmentCard'
 
+const POLL_INTERVAL = 5000
+
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [activatingEnvironment, setActivatingEnvironment] = useState<string | null>(null)
@@ -134,24 +136,20 @@ export function EnvironmentManagerComponent() {
     }
   }
 
+  // Poll every 5 seconds to refresh the environments
   useEffect(() => {
-    const fetchData = async () => {
-      await updateEnvironments()
-      const settings = await getUserSettings()
-      console.log(`settings: ${JSON.stringify(settings)}`)
-      setUserSettings(settings)
-    }
-
-    const retryInterval = setInterval(() => {
-      if (isLoading) {
-        fetchData()
+    const retryInterval = setInterval(async () => {
+      try {
+        const fetchedEnvironments = await fetchEnvironments()
+        setEnvironments(fetchedEnvironments)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error updating environments:", error);
+        setIsLoading(true);
       }
-    }, 2000)
-
-    fetchData()
-
-    return () => clearInterval(retryInterval)
-  }, [isLoading])
+    }, POLL_INTERVAL);
+    return () => clearInterval(retryInterval);
+  }, []);
 
   return (
     <div className="container min-w-[100vw] min-h-screen mx-auto p-4 relative">
@@ -179,7 +177,7 @@ export function EnvironmentManagerComponent() {
             <Button className="bg-blue-600 hover:bg-blue-700">Create Environment</Button>
           </CreateEnvironmentDialog>
 
-          <Button 
+          {/* <Button 
             className="bg-teal-600 hover:bg-teal-700"
             onClick={async () => {
               setIsLoading(true)
@@ -188,7 +186,7 @@ export function EnvironmentManagerComponent() {
             }}
           >
             <RefreshCcw className="w-4 h-4 mr-2" />Refresh
-          </Button>
+          </Button> */}
 
           <UserSettingsDialog updateUserSettingsHandler={updateUserSettingsHandler}>
             <Button className="bg-purple-600 hover:bg-purple-700"><Settings className="w-4 h-4 mr-2" />Settings</Button>
