@@ -44,14 +44,14 @@ const formSchema = z.object({
 
 
 export interface DuplicateEnvironmentDialogProps {
-  children: React.ReactNode
   environment: Environment
   environments: Environment[]
   duplicateEnvironmentHandler: (id: string, environment: EnvironmentInput) => Promise<void>
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export default function DuplicateEnvironmentDialog({ children, environment, environments, duplicateEnvironmentHandler }: DuplicateEnvironmentDialogProps) {
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+export default function DuplicateEnvironmentDialog({ environment, environments, duplicateEnvironmentHandler, open, onOpenChange }: DuplicateEnvironmentDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
@@ -115,7 +115,7 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
       // Stop loading state
       setIsLoading(false)
 
-      setIsCreateModalOpen(false)
+      onOpenChange(false)
       resetForm()
       toast({
         title: "Success",
@@ -155,10 +155,7 @@ export default function DuplicateEnvironmentDialog({ children, environment, envi
   }
 
   return (
-    <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-h-[80vh] overflow-y-auto dialog-content'>
         <DialogHeader>
           <DialogTitle>Duplicate Environment</DialogTitle>

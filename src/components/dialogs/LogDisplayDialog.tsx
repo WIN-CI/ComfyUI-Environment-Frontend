@@ -5,12 +5,12 @@ import { Environment } from '@/types/Environment'
 import { connectToLogStream } from '@/api/environmentApi'
 
 export interface LogDisplayDialogProps {
-  children: React.ReactNode
   environment: Environment
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export default function LogDisplayDialog({ children, environment }: LogDisplayDialogProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export default function LogDisplayDialog({ environment, open, onOpenChange }: LogDisplayDialogProps) {
   const [logs, setLogs] = useState<string[]>([])
   const [autoScroll, setAutoScroll] = useState(true)
   const [showResumeButton, setShowResumeButton] = useState(false)
@@ -18,7 +18,7 @@ export default function LogDisplayDialog({ children, environment }: LogDisplayDi
   const logEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!open) return
 
     const appendLog = (log: string) => {
       setLogs((prevLogs) => [...prevLogs, log])
@@ -29,14 +29,14 @@ export default function LogDisplayDialog({ children, environment }: LogDisplayDi
     return () => {
       disconnect()
     }
-  }, [isOpen, environment.id])
+  }, [open, environment.id])
 
   // Clear logs when the dialog is closed
   useEffect(() => {
-    if (!isOpen) {
+    if (!open) {
       setLogs([])
     }
-  }, [isOpen])
+  }, [open])
 
   useEffect(() => {
     if (autoScroll) {
@@ -60,17 +60,14 @@ export default function LogDisplayDialog({ children, environment }: LogDisplayDi
   }
 
   const handleDialogOpenChange = (open: boolean) => {
-    setIsOpen(open)
+    onOpenChange(open)
     if (!open) {
       setLogs([])
     }
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-h-[80vh] min-w-[70vw] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Environment Logs</DialogTitle>
@@ -93,7 +90,7 @@ export default function LogDisplayDialog({ children, environment }: LogDisplayDi
               Resume Auto-Scroll
             </Button>
           )}
-          <Button onClick={() => setIsOpen(false)}>Close</Button>
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
