@@ -28,9 +28,11 @@ export interface CustomAlertDialogProps {
 export function CustomAlertDialog({ title, description, cancelText, actionText, onAction, onCancel, children, open, onOpenChange, variant = "destructive", loading = false }: CustomAlertDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogTrigger asChild>
-        {children}
-      </AlertDialogTrigger>
+      {children && (
+        <AlertDialogTrigger asChild>
+          {children}
+        </AlertDialogTrigger>
+      )}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

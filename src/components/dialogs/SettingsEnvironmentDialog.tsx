@@ -23,13 +23,13 @@ const formSchema = z.object({
 })
 
 export interface SettingsEnvironmentDialogProps {
-  children: React.ReactNode
   environment: Environment
+  open: boolean
+  onOpenChange: (open: boolean) => void
   updateEnvironmentHandler: (id: string, name: string) => Promise<void>
 }
 
-export default function SettingsEnvironmentDialog({ children, environment, updateEnvironmentHandler }: SettingsEnvironmentDialogProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export default function SettingsEnvironmentDialog({ environment, updateEnvironmentHandler, open, onOpenChange }: SettingsEnvironmentDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
@@ -44,7 +44,7 @@ export default function SettingsEnvironmentDialog({ children, environment, updat
     try {
       setIsLoading(true)
       await updateEnvironmentHandler(environment.id || "", values.name)
-      setIsOpen(false)
+      onOpenChange(false)
       toast({
         title: "Success",
         description: "Environment updated successfully",
@@ -62,10 +62,7 @@ export default function SettingsEnvironmentDialog({ children, environment, updat
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-h-[80vh] min-w-[700px] overflow-y-auto dialog-content'>
         <DialogHeader>
           <DialogTitle>Environment Settings</DialogTitle>
