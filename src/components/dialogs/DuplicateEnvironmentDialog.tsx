@@ -73,20 +73,8 @@ export default function DuplicateEnvironmentDialog({ environment, environments, 
 
   // Use useEffect to update form values when the environment changes
   useEffect(() => {
-    form.reset({
-      name: environment.name + "-copy",
-      release: environment.options?.["comfyui_release"] as string || "latest",
-      image: "",
-      comfyUIPath: environment.comfyui_path || defaultComfyUIPath || "",
-      command: environment.command || "",
-      port: environment.options?.["port"] as string || "8188",
-      runtime: environment.options?.["runtime"] as "nvidia" | "none" || "nvidia",
-      environmentType: "Auto",
-      mountConfig: Object.entries(environment.options?.["mount_config"] || {})
-        .filter(([_, action]) => action === "mount")
-        .map(([directory, action]) => ({ directory, action: action as "mount" })),
-    });
-  }, [environment, form]);
+    form.reset();
+  }, [open]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -119,7 +107,7 @@ export default function DuplicateEnvironmentDialog({ environment, environments, 
     }
 
     try {
-      validateEnvironmentInput(newEnvironment)
+      // validateEnvironmentInput(newEnvironment)
       console.log(newEnvironment)
 
       // Start loading state

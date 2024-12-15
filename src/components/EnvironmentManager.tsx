@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
-import { ExternalLink, HelpCircle, Loader2, RefreshCcw, Settings } from 'lucide-react'
+import { ExternalLink, FolderIcon, HelpCircle, Loader2, RefreshCcw, Settings, Trash2 } from 'lucide-react'
 import { Environment, EnvironmentInput } from '@/types/Environment'
 import CreateEnvironmentDialog from './dialogs/CreateEnvironmentDialog'
 import { useToast } from '@/hooks/use-toast'
@@ -14,35 +14,104 @@ import {
   updateEnvironment,
   getUserSettings,
   updateUserSettings,
+  createFolder,
+  updateFolder,
+  deleteFolder,
 } from '@/api/environmentApi'
 import UserSettingsDialog from './dialogs/UserSettingsDialog'
-import { UserSettings } from '@/types/UserSettings'
+import { FolderInput, UserSettings } from '@/types/UserSettings'
 import EnvironmentCard from './EnvironmentCard'
+import { DEFAULT_FOLDERS, FolderSelector } from './FolderSelector'
+import { Folder } from '@/types/UserSettings'
+import { CustomAlertDialog } from './dialogs/CustomAlertDialog'
 
 const POLL_INTERVAL = 2000
 const SUCCESS_TOAST_DURATION = 2000
 
-export function EnvironmentManagerComponent() {
+  export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [activatingEnvironment, setActivatingEnvironment] = useState<string | null>(null)
   const [deletingEnvironment, setDeletingEnvironment] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
+  const [folders, setFolders] = useState<Folder[]>(DEFAULT_FOLDERS);
+  const [selectedFolder, setSelectedFolder] = useState<Folder | null>(DEFAULT_FOLDERS[0]);
+  const [folderDeleteOpen, setFolderDeleteOpen] = useState(false);
   const { toast } = useToast()
 
-  const updateEnvironments = async () => {
+  const updateEnvironments = async (folderId?: string) => {
     try {
-      const fetchedEnvironments = await fetchEnvironments()
+      const curFolder = folderId || selectedFolder?.id
+      const fetchedEnvironments = await fetchEnvironments(curFolder)
       setEnvironments(fetchedEnvironments)
       setIsLoading(false)
     } catch (error) {
       console.error('Failed to fetch environments:', error)
+      throw Error(`Failed to fetch environments: ${error}`)
       // Keep isLoading true to continue showing the loading state
     }
   }
 
+  const handleAddFolder = async (folder: FolderInput) => {
+    if (folder.name) {
+      try {
+        const newFolder = await createFolder(folder.name);
+        setFolders((prev) => [...prev, newFolder]);
+        await updateEnvironments()
+        toast({ title: "Success", description: `Folder "${folder.name}" created`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+      } catch (error) {
+        console.error(error);
+        toast({ title: "Error", description: `Failed to create folder: ${error}`, variant: "destructive" });
+      }
+    }
+  }
+
+  const handleEditFolder = async (folder: Folder) => {
+    const newName = prompt("Enter new name for folder:", folder.name);
+    if (newName && newName !== folder.name) {
+      try {
+        const updated = await updateFolder(folder.id, newName);
+        setFolders((prev) => prev.map((f) => f.id === folder.id ? updated : f));
+        await updateEnvironments()
+        toast({ title: "Success", description: `Folder "${newName}" updated`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+      } catch (error) {
+        console.error(error);
+        toast({ title: "Error", description: `Failed to update folder: ${error}`, variant: "destructive" });
+      }
+    }
+  }
+
+  const handleDeleteFolder = async (folder: Folder | null) => {
+    if (!folder) {
+      toast({ title: "Error", description: "No folder selected", variant: "destructive" });
+      return;
+    }
+    if (folder.id === "all" || folder.id === "deleted") {
+      toast({ title: "Error", description: "Cannot delete default folders", variant: "destructive" });
+      return;
+    }
+
+    try {
+      let newFolder = folder.id === selectedFolder?.id ? DEFAULT_FOLDERS[0] : selectedFolder
+      await deleteFolder(folder.id);
+      await updateEnvironments(newFolder?.id)
+      setSelectedFolder(newFolder)
+      setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+      toast({ title: "Success", description: `Folder "${folder.name}" deleted`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Error", description: `Failed to delete folder: ${error}`, variant: "destructive" });
+    }
+    
+  }
+
   const createEnvironmentHandler = async (environment: EnvironmentInput) => {
     try {
+      // TODO: possibly change this to user dropdown in create dialog instead of default
+      // Add current folder id to environment if not a default folder
+      if (selectedFolder?.id && selectedFolder?.id !== 'all' && selectedFolder?.id !== 'deleted') {
+        environment.folderIds = [selectedFolder?.id]
+      }
       await createEnvironment(environment)
       await updateEnvironments()
     } catch (error) {
@@ -116,10 +185,10 @@ export function EnvironmentManagerComponent() {
     }
   }
 
-  const updateEnvironmentHandler = async (id: string, name: string) => {
-    console.log(`updateEnvironmentHandler: ${id} ${name}`)
+  const updateEnvironmentHandler = async (id: string, name: string, folderIds?: string[]) => {
+    console.log(`updateEnvironmentHandler: ${id} ${name} ${folderIds}`)
     try {
-      await updateEnvironment(id, { name })
+      await updateEnvironment(id, { name, folderIds })
       await updateEnvironments()
     } catch (error) {
       console.error(error)
@@ -139,30 +208,32 @@ export function EnvironmentManagerComponent() {
 
   // Get the user settings on mount
   useEffect(() => {
-    getUserSettings().then((settings) => {
+    getUserSettings().then((settings: UserSettings) => {
       setUserSettings(settings)
+      // const mergedFolders = [...DEFAULT_FOLDERS, ...(settings.folders || [])];
+      // setFolders(mergedFolders)
+      setFolders(settings.folders || [])
     })
   }, [])
 
   // Poll every 5 seconds to refresh the environments
   useEffect(() => {
+    updateEnvironments(selectedFolder?.id)
     const retryInterval = setInterval(async () => {
       try {
-        const fetchedEnvironments = await fetchEnvironments()
-        setEnvironments(fetchedEnvironments)
-        setIsLoading(false)
+        await updateEnvironments(selectedFolder?.id)
       } catch (error) {
-        console.error("Error updating environments:", error);
+        console.error("Error updating environments1:", error);
         setIsLoading(true);
       }
     }, POLL_INTERVAL);
     return () => clearInterval(retryInterval);
-  }, []);
+  }, [selectedFolder?.id]);
 
   return (
     <div className="container min-w-[100vw] min-h-screen mx-auto p-4 relative">
       {isLoading && (
-        <div className="absolute inset-0 bg-zinc-200/50 dark:bg-zinc-800/50 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+        <div className="fixed inset-0 bg-zinc-200/50 dark:bg-zinc-800/50 backdrop-blur-sm flex flex-col items-center justify-center z-50">
           <Loader2 className="w-12 h-12 text-zinc-900 dark:text-zinc-50 animate-spin mb-4" />
           <p className="text-zinc-900 dark:text-zinc-50 text-lg font-semibold">
             Connecting to server...
@@ -179,29 +250,18 @@ export function EnvironmentManagerComponent() {
       </h1>
 
 
-      <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-4">
         <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
           <CreateEnvironmentDialog userSettings={userSettings} environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
             <Button className="bg-blue-600 hover:bg-blue-700">Create Environment</Button>
           </CreateEnvironmentDialog>
-
-          {/* <Button 
-            className="bg-teal-600 hover:bg-teal-700"
-            onClick={async () => {
-              setIsLoading(true)
-              await updateEnvironments()
-              setIsLoading(false)
-            }}
-          >
-            <RefreshCcw className="w-4 h-4 mr-2" />Refresh
-          </Button> */}
 
           <UserSettingsDialog updateUserSettingsHandler={updateUserSettingsHandler}>
             <Button className="bg-purple-600 hover:bg-purple-700"><Settings className="w-4 h-4 mr-2" />Settings</Button>
           </UserSettingsDialog>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
           <a
               href={`https://cyber-damselfly-b6c.notion.site/ComfyUI-Environment-Manager-14ffd5b1ca3b804abafbdb4bd6b8068e`}
               target="_blank"
@@ -213,18 +273,34 @@ export function EnvironmentManagerComponent() {
               </Button>
             </a>
 
-          <a href='https://ko-fi.com/A0A616TJHD' target='_blank' rel="noopener noreferrer" className="mt-4 md:mt-0">
+          <a href='https://ko-fi.com/A0A616TJHD' target='_blank' rel="noopener noreferrer">
             <img height='36' style={{border: '0px', height: '36px'}} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
           </a>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="w-full flex justify-between items-center mb-4">
+        <FolderSelector
+          folders={folders}
+          selectedFolder={selectedFolder}
+          onSelectFolder={(folder) => {
+            console.log(`Selected folder: ${folder.name}`)
+            setSelectedFolder(folder)
+            updateEnvironments(folder.id)
+          }}
+          onAddFolder={handleAddFolder} 
+          onEditFolder={handleEditFolder}
+          onDeleteFolder={handleDeleteFolder}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
         {environments.map((env: Environment) => (
           <EnvironmentCard
             key={env.id}
             environment={env}
             environments={environments}
+            folders={folders}
             activatingEnvironment={activatingEnvironment}
             deletingEnvironment={deletingEnvironment}
             updateEnvironmentHandler={updateEnvironmentHandler}

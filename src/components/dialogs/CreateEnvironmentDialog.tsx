@@ -169,7 +169,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
     }
 
     try {
-      validateEnvironmentInput(newEnvironment)
+      // validateEnvironmentInput(newEnvironment)
       console.log(newEnvironment)
 
       // Start loading state

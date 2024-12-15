@@ -27,13 +27,15 @@ import DuplicateEnvironmentDialog from "./dialogs/DuplicateEnvironmentDialog";
 import { CustomAlertDialog } from "./dialogs/CustomAlertDialog";
 import { StatusBadge } from "./utils/StatusBadge";
 import { ToolTip } from "./utils/Tooltip";
+import { Folder } from "@/types/UserSettings";
 
 type EnvironmentCardProps = {
   environment: Environment;
   environments: Environment[];
+  folders: Folder[];
   activatingEnvironment: string | null;
   deletingEnvironment: string | null;
-  updateEnvironmentHandler: (id: string, name: string) => Promise<void>;
+  updateEnvironmentHandler: (id: string, name: string, folderIds?: string[]) => Promise<void>;
   duplicateEnvironmentHandler: (id: string, environment: EnvironmentInput) => Promise<void>;
   deleteEnvironmentHandler: (id: string) => Promise<void>;
   activateEnvironmentHandler: (id: string) => Promise<void>;
@@ -43,6 +45,7 @@ type EnvironmentCardProps = {
 export default function EnvironmentCard({
   environment,
   environments,
+  folders,
   activatingEnvironment,
   deletingEnvironment,
   updateEnvironmentHandler,
@@ -113,10 +116,11 @@ export default function EnvironmentCard({
         </CardContent>
 
         {/* Card Footer (Actions) */}
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex flex-wrap justify-between">
           <div className="flex gap-2">
             <SettingsEnvironmentDialog
               environment={environment}
+              folders={folders}
               updateEnvironmentHandler={updateEnvironmentHandler}
               open={settingsDialogOpen}
               onOpenChange={setSettingsDialogOpen}
