@@ -64,11 +64,11 @@ const getEnvironmentFolder = (
 ) => {
   return environment.folderIds?.[0]
     ? folders.find((folder) => folder.id === environment.folderIds?.[0]) || {
-        id: "",
+        id: "None",
         name: "None",
         icon: "FolderX",
       }
-    : { id: "", name: "None", icon: "FolderX" };
+    : { id: "None", name: "None", icon: "FolderX" };
 };
 
 export default function SettingsEnvironmentDialog({

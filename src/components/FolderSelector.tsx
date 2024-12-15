@@ -14,11 +14,12 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { ChevronDown, FolderIcon, Plus, Trash2, Edit2 } from "lucide-react";
+import { ChevronDown, Plus, Settings } from "lucide-react";
 import { Folder, FolderInput } from "@/types/UserSettings";
 import { CreateFolderDialog } from "./dialogs/CreateFolderDialog";
-import { CustomAlertDialog } from "./dialogs/CustomAlertDialog";
 import { IconComponent } from "./utils/IconComponent";
+import { truncateText } from "@/utils/stringUtils";
+import { FolderEditDialog } from "./dialogs/FolderEditDialog";
 
 export const DEFAULT_FOLDERS: Folder[] = [
   {
@@ -40,9 +41,9 @@ interface FolderSelectorProps {
   showDefaultFolders?: boolean;
   showFolderButtons?: boolean;
   onSelectFolder: (folder: Folder) => void | null;
-  onAddFolder?: (folder: FolderInput) => void;
-  onEditFolder?: (folder: Folder) => void;
-  onDeleteFolder?: (folder: Folder | null) => void;
+  onAddFolder?: (folder: FolderInput) => Promise<void>;
+  onEditFolder?: (folder: Folder) => Promise<void>;
+  onDeleteFolder?: (folder: Folder | null) => Promise<void>;
 }
 
 export function FolderSelector({
@@ -57,20 +58,21 @@ export function FolderSelector({
   onDeleteFolder,
 }: FolderSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [folderDeleteOpen, setFolderDeleteOpen] = useState(false);
-  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const [folderToEdit, setFolderToEdit] = useState<Folder | null>(null);
+  const [folderEditOpen, setFolderEditOpen] = useState(false);
 
   return (
     <div className="flex items-center space-x-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="justify-between w-[200px]">
-            {selectedFolder?.icon && IconComponent(selectedFolder.icon) || IconComponent('FolderIcon')}
-            {selectedFolder?.name}
+          <Button variant="outline" className="justify-between w-[250px] ">
+            {(selectedFolder?.icon && IconComponent(selectedFolder.icon)) ||
+              IconComponent("FolderIcon")}
+            {truncateText(selectedFolder?.name || "", 20)}
             <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0">
+        <PopoverContent className="min-w-[200px] p-0">
           <Command>
             {searchEnabled && <CommandInput placeholder="Search folders..." />}
             <CommandEmpty>No folder found.</CommandEmpty>
@@ -106,32 +108,26 @@ export function FolderSelector({
                     {folder.icon && IconComponent(folder.icon)
                       ? IconComponent(folder.icon)
                       : IconComponent("FolderIcon")}
-                    {folder.name}
-                    {folder.id !== "all" && folder.id !== "deleted" && showFolderButtons && (
-                      <div className="ml-auto flex items-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditFolder?.(folder);
-                          }}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFolderToDelete(folder);
-                            setFolderDeleteOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <span style={{ wordWrap: "break-word", maxWidth: "165px" }}>
+                      {folder.name}
+                    </span>
+                    {folder.id !== "all" &&
+                      folder.id !== "deleted" &&
+                      showFolderButtons && (
+                        <div className="ml-auto flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFolderToEdit(folder);
+                              setFolderEditOpen(true);
+                            }}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -146,17 +142,13 @@ export function FolderSelector({
           </Button>
         </CreateFolderDialog>
       )}
-      {onDeleteFolder && (
-        <CustomAlertDialog
-          open={folderDeleteOpen}
-          onOpenChange={setFolderDeleteOpen}
-          title="Delete Folder"
-          description={`Are you sure you want to delete ${folderToDelete?.name}? This cannot be undone.`}
-          onAction={() => onDeleteFolder(folderToDelete)}
-          onCancel={() => setFolderDeleteOpen(false)}
-          cancelText="Cancel"
-          actionText="Delete"
-          variant="destructive"
+      {showFolderButtons && folderToEdit && (
+        <FolderEditDialog
+          folder={folderToEdit}
+          open={folderEditOpen}
+          onOpenChange={setFolderEditOpen}
+          onUpdate={onEditFolder}
+          onDelete={onDeleteFolder}
         />
       )}
     </div>

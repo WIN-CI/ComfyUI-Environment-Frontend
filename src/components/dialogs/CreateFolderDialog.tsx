@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Folder, FolderInput } from '@/types/UserSettings'
 import { FolderIcon } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 interface CreateFolderDialogProps {
   onConfirm: (folder: FolderInput) => void
@@ -17,6 +18,11 @@ export function CreateFolderDialog({ onConfirm, children }: CreateFolderDialogPr
 
   const handleConfirm = () => {
     if (folderName.trim()) {
+      // Check length of folder name
+      if (folderName.length > 32) {
+        toast({ title: "Error", description: "Folder name must be less than 32 characters", variant: "destructive" });
+        return;
+      }
       const newFolder: FolderInput = { name: folderName.trim(), icon: 'FolderIcon' }
       onConfirm(newFolder)
       setFolderName('')

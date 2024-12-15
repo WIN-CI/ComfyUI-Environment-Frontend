@@ -67,13 +67,13 @@ const SUCCESS_TOAST_DURATION = 2000
   }
 
   const handleEditFolder = async (folder: Folder) => {
-    const newName = prompt("Enter new name for folder:", folder.name);
-    if (newName && newName !== folder.name) {
+    if (folder.name) {
       try {
-        const updated = await updateFolder(folder.id, newName);
-        setFolders((prev) => prev.map((f) => f.id === folder.id ? updated : f));
+        const updated = await updateFolder(folder.id, folder.name);
         await updateEnvironments()
-        toast({ title: "Success", description: `Folder "${newName}" updated`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+        setFolders((prev) => prev.map((f) => f.id === folder.id ? updated : f));
+        setSelectedFolder(updated)
+        toast({ title: "Success", description: `Folder "${folder.name}" updated`, variant: "default", duration: SUCCESS_TOAST_DURATION });
       } catch (error) {
         console.error(error);
         toast({ title: "Error", description: `Failed to update folder: ${error}`, variant: "destructive" });
@@ -101,6 +101,7 @@ const SUCCESS_TOAST_DURATION = 2000
     } catch (error) {
       console.error(error);
       toast({ title: "Error", description: `Failed to delete folder: ${error}`, variant: "destructive" });
+      throw error
     }
     
   }
@@ -155,23 +156,39 @@ const SUCCESS_TOAST_DURATION = 2000
   }
 
   const deleteEnvironmentHandler = async (id: string) => {
+    // Get the environment
+    const environment = environments.find((env) => env.id === id);
+    if (!environment) {
+      throw new Error(`Environment with id ${id} not found`);
+    }
+
     try {
-      console.log(`deleteEnvironmentHandler: ${id}`)
-      setDeletingEnvironment(id)
-      const response = await deleteEnvironment(id)
-      await updateEnvironments()
-      return response
+      console.log(`deleteEnvironmentHandler: ${id} ${environment.folderIds}`);
+      setDeletingEnvironment(id);
+
+      const folderId = environment.folderIds && environment.folderIds.length > 0 ? environment.folderIds[0] : null;
+
+      if (folderId === "deleted") {
+        // Proceed with actual deletion
+        const response = await deleteEnvironment(id);
+        await updateEnvironments();
+        return response;
+      } else {
+        // Move to "deleted" folder
+        await updateEnvironment(id, { name: environment.name, folderIds: ["deleted"] });
+        await updateEnvironments();
+      }
     } catch (error: any) {
-      console.error(error)
+      console.error(error);
       toast({
         title: "Error",
         description: `Failed to delete environment: ${error.message}`,
         variant: "destructive",
-      })
+      });
     } finally {
-      setDeletingEnvironment(null)
+      setDeletingEnvironment(null);
     }
-  }
+  };
 
   const duplicateEnvironmentHandler = async (id: string, environment: EnvironmentInput) => {
     try {
