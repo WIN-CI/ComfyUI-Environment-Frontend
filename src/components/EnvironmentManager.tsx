@@ -20,6 +20,7 @@ import { UserSettings } from '@/types/UserSettings'
 import EnvironmentCard from './EnvironmentCard'
 
 const POLL_INTERVAL = 2000
+const SUCCESS_TOAST_DURATION = 2000
 
 export function EnvironmentManagerComponent() {
   const [environments, setEnvironments] = useState<Environment[]>([])

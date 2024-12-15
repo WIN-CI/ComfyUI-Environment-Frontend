@@ -13,6 +13,7 @@ export type EnvironmentInput = {
 export type Environment = {
     name: string;
     image: string;
+    container_name?: string;
     id?: string;
     status?: string;
     command?: string;

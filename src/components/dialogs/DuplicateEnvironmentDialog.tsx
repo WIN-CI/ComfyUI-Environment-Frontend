@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -24,11 +24,10 @@ import FormFieldComponent from '../form/FormFieldComponent'
 import MountConfigRow from '../form/MountConfigRow'
 
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
+const SUCCESS_TOAST_DURATION = 2000
 
 const formSchema = z.object({
-  name: z.string()
-    .min(2, { message: "Environment name is required. Minimum length is 2 characters." })
-    .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, { message: "Invalid environment name format. Only alphanumeric characters, dots, underscores, and hyphens are allowed." }),
+  name: z.string().min(1, { message: "Environment name is required" }).max(128, { message: "Environment name must be less than 128 characters" }),
   release: z.string().optional(),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
@@ -71,6 +70,23 @@ export default function DuplicateEnvironmentDialog({ environment, environments, 
         .map(([directory, action]) => ({ directory, action: action as "mount" })),
     },
   })
+
+  // Use useEffect to update form values when the environment changes
+  useEffect(() => {
+    form.reset({
+      name: environment.name + "-copy",
+      release: environment.options?.["comfyui_release"] as string || "latest",
+      image: "",
+      comfyUIPath: environment.comfyui_path || defaultComfyUIPath || "",
+      command: environment.command || "",
+      port: environment.options?.["port"] as string || "8188",
+      runtime: environment.options?.["runtime"] as "nvidia" | "none" || "nvidia",
+      environmentType: "Auto",
+      mountConfig: Object.entries(environment.options?.["mount_config"] || {})
+        .filter(([_, action]) => action === "mount")
+        .map(([directory, action]) => ({ directory, action: action as "mount" })),
+    });
+  }, [environment, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -120,6 +136,7 @@ export default function DuplicateEnvironmentDialog({ environment, environments, 
       toast({
         title: "Success",
         description: "Environment created successfully",
+        duration: SUCCESS_TOAST_DURATION,
       })
     } catch (error: any) {
       console.error(error)

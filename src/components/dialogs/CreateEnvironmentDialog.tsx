@@ -31,6 +31,7 @@ import ImagePullDialog from './PullImageDialog'
 const defaultComfyUIPath = import.meta.env.VITE_DEFAULT_COMFYUI_PATH
 
 const COMFYUI_IMAGE_NAME = "akatzai/comfyui-env"
+const SUCCESS_TOAST_DURATION = 2000
 
 // Get the inverse mapping of dockerImageToReleaseMap
 // const comfyUIReleasesFromImageMap = Object.fromEntries(Object.entries(dockerImageToReleaseMap).map(([release, image]) => [image, release]))
@@ -44,8 +45,8 @@ const getLatestComfyUIReleaseFromBranch = (branch: string, releases: string[]) =
 }
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: "Environment name is required" }),
-  release: z.string().nonempty({ message: "Release is required" }),
+  name: z.string().min(1, { message: "Environment name is required" }).max(128, { message: "Environment name must be less than 128 characters" }),
+  release: z.string().min(1, { message: "Release is required" }),
   image: z.string().optional(),
   comfyUIPath: z.string().min(1, { message: "ComfyUI path is required" }),
   environmentType: z.enum(["Default", "Default+", "Basic", "Isolated", "Custom"]),
@@ -212,6 +213,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       toast({
         title: "Success",
         description: "Environment created successfully",
+        duration: SUCCESS_TOAST_DURATION,
       });
   
       // Cleanup after success
@@ -282,6 +284,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
       toast({
         title: "Success",
         description: "ComfyUI installed successfully",
+        duration: SUCCESS_TOAST_DURATION,
       })
       await continueCreateEnvironment(pendingEnvironment);
       // On success, append "ComfyUI" to the comfyui path TODO: This is a hack to make sure the path is correct

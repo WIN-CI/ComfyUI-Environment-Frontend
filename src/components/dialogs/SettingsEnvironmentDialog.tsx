@@ -15,8 +15,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { Loader2, Calendar, Image, Copy, Hash, Folder, Terminal, Tag, Network, HardDrive } from 'lucide-react'
+import { Loader2, Calendar, Image, Copy, Hash, Folder, Terminal, Tag, Network, HardDrive, Package } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+const SUCCESS_TOAST_DURATION = 2000
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Environment name is required" }),
@@ -48,6 +50,7 @@ export default function SettingsEnvironmentDialog({ environment, updateEnvironme
       toast({
         title: "Success",
         description: "Environment updated successfully",
+        duration: SUCCESS_TOAST_DURATION,
       })
     } catch (error: any) {
       console.error(error)
@@ -91,6 +94,7 @@ export default function SettingsEnvironmentDialog({ environment, updateEnvironme
                   <InfoItem icon={<Calendar className="h-4 w-4" />} label="Created At" value={new Date(Number(environment.metadata?.["created_at"]) * 1000).toLocaleString()} />
                   <InfoItem icon={<Image className="h-4 w-4" />} label="Base Image" value={environment.metadata?.["base_image"] as string} />
                   <InfoItem icon={<Copy className="h-4 w-4" />} label="Duplicate" value={environment.duplicate ? 'Yes' : 'No'} />
+                  <InfoItem icon={<Package className="h-4 w-4" />} label="Container Name" value={environment.container_name || environment.name || 'N/A'} />
                   <InfoItem icon={<Hash className="h-4 w-4" />} label="Environment ID" value={environment.id || 'N/A'} />
                   <InfoItem icon={<Folder className="h-4 w-4" />} label="ComfyUI Path" value={environment.comfyui_path || 'N/A'} />
                   <InfoItem icon={<Terminal className="h-4 w-4" />} label="Command" value={environment.command || 'N/A'} />
