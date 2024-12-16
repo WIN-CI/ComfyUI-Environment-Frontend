@@ -31,12 +31,19 @@ import { Loader2 } from "lucide-react";
 import { getUserSettings, updateUserSettings } from "@/api/environmentApi";
 import { UserSettings, UserSettingsInput } from "@/types/UserSettings";
 
+// TODO: Update only changed fields
+
 const formSchema = z.object({
   comfyui_path: z.string().min(1, { message: "ComfyUI path is required" }),
   port: z.number().int().min(1024).max(65535),
   runtime: z.string().min(1, { message: "Runtime is required" }),
   command: z.string().optional(),
   max_deleted_environments: z.number().int().min(1).max(100),
+  folders: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    icon: z.string().optional(),
+  })).optional(),
 });
 
 export interface UserSettingsDialogProps {
@@ -59,6 +66,7 @@ export default function UserSettingsDialog({
       port: 8188,
       runtime: "nvidia",
       command: "",
+      folders: [],
       max_deleted_environments: 10,
     },
   });
@@ -67,6 +75,7 @@ export default function UserSettingsDialog({
     const loadUserSettings = async () => {
       try {
         const settings = await getUserSettings();
+        console.log(`settings: ${JSON.stringify(settings)}`);
         form.reset(settings);
       } catch (error: any) {
         console.error(error);
@@ -81,11 +90,13 @@ export default function UserSettingsDialog({
     if (isOpen) {
       loadUserSettings();
     }
-  }, [isOpen, form, toast]);
+  }, [isOpen, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log(`onSubmit: ${JSON.stringify(values)}`);
     try {
       setIsLoading(true);
+      console.log(`values: ${JSON.stringify(values)}`);
       await updateUserSettingsHandler(values as UserSettingsInput);
       setIsOpen(false);
       toast({
