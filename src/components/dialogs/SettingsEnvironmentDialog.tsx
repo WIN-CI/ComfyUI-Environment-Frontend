@@ -34,6 +34,7 @@ import {
   HardDrive,
   Package,
   FolderIcon,
+  Trash,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Folder as FolderType } from "@/types/UserSettings";
@@ -159,7 +160,10 @@ export default function SettingsEnvironmentDialog({
                   {/* <FormControl> */}
                   <div onClick={(e) => e.stopPropagation()}>
                     <FolderSelector
-                      folders={[{id: 'None', name: 'None', icon: 'FolderX'}, ...folders]}
+                      folders={[
+                        { id: "None", name: "None", icon: "FolderX" },
+                        ...folders,
+                      ]}
                       showDefaultFolders={false}
                       searchEnabled={false}
                       showFolderButtons={false}
@@ -189,6 +193,17 @@ export default function SettingsEnvironmentDialog({
                       Number(environment.metadata?.["created_at"]) * 1000
                     ).toLocaleString()}
                   />
+                  {environment.folderIds &&
+                    environment.folderIds.length > 0 &&
+                    environment.folderIds[0] === "deleted" && (
+                      <InfoItem
+                        icon={<Trash className="h-4 w-4" />}
+                        label="Deleted At"
+                        value={new Date(
+                          Number(environment.metadata?.["deleted_at"]) * 1000
+                        ).toLocaleString()}
+                      />
+                    )}
                   <InfoItem
                     icon={<Image className="h-4 w-4" />}
                     label="Base Image"
@@ -208,7 +223,7 @@ export default function SettingsEnvironmentDialog({
                   />
                   <InfoItem
                     icon={<Hash className="h-4 w-4" />}
-                    label="Environment ID"
+                    label="Container ID"
                     value={environment.id || "N/A"}
                   />
                   <InfoItem

@@ -36,6 +36,7 @@ const formSchema = z.object({
   port: z.number().int().min(1024).max(65535),
   runtime: z.string().min(1, { message: "Runtime is required" }),
   command: z.string().optional(),
+  max_deleted_environments: z.number().int().min(1).max(100),
 });
 
 export interface UserSettingsDialogProps {
@@ -58,6 +59,7 @@ export default function UserSettingsDialog({
       port: 8188,
       runtime: "nvidia",
       command: "",
+      max_deleted_environments: 10,
     },
   });
 
@@ -178,6 +180,25 @@ export default function UserSettingsDialog({
                   <FormLabel>Default Command (Optional)</FormLabel>
                   <FormControl>
                     <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="max_deleted_environments"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Max Deleted Environments</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) =>
+                        field.onChange(parseInt(e.target.value, 10))
+                      }
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

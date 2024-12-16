@@ -1,15 +1,23 @@
-import { useEffect, useState } from 'react'
-import { Button } from "@/components/ui/button"
-import { ExternalLink, FolderIcon, HelpCircle, Loader2, RefreshCcw, Settings, Trash2 } from 'lucide-react'
-import { Environment, EnvironmentInput } from '@/types/Environment'
-import CreateEnvironmentDialog from './dialogs/CreateEnvironmentDialog'
-import { useToast } from '@/hooks/use-toast'
-import { 
-  createEnvironment, 
-  fetchEnvironments, 
-  activateEnvironment, 
-  deactivateEnvironment, 
-  duplicateEnvironment, 
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  ExternalLink,
+  FolderIcon,
+  HelpCircle,
+  Loader2,
+  RefreshCcw,
+  Settings,
+  Trash2,
+} from "lucide-react";
+import { Environment, EnvironmentInput } from "@/types/Environment";
+import CreateEnvironmentDialog from "./dialogs/CreateEnvironmentDialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  createEnvironment,
+  fetchEnvironments,
+  activateEnvironment,
+  deactivateEnvironment,
+  duplicateEnvironment,
   deleteEnvironment,
   updateEnvironment,
   getUserSettings,
@@ -17,143 +25,190 @@ import {
   createFolder,
   updateFolder,
   deleteFolder,
-} from '@/api/environmentApi'
-import UserSettingsDialog from './dialogs/UserSettingsDialog'
-import { FolderInput, UserSettings } from '@/types/UserSettings'
-import EnvironmentCard from './EnvironmentCard'
-import { DEFAULT_FOLDERS, FolderSelector } from './FolderSelector'
-import { Folder } from '@/types/UserSettings'
-import { CustomAlertDialog } from './dialogs/CustomAlertDialog'
+} from "@/api/environmentApi";
+import UserSettingsDialog from "./dialogs/UserSettingsDialog";
+import { FolderInput, UserSettings } from "@/types/UserSettings";
+import EnvironmentCard from "./EnvironmentCard";
+import { DEFAULT_FOLDERS, FolderSelector } from "./FolderSelector";
+import { Folder } from "@/types/UserSettings";
+import { CustomAlertDialog } from "./dialogs/CustomAlertDialog";
 
-const POLL_INTERVAL = 2000
-const SUCCESS_TOAST_DURATION = 2000
+const POLL_INTERVAL = 2000;
+const SUCCESS_TOAST_DURATION = 2000;
 
-  export function EnvironmentManagerComponent() {
-  const [environments, setEnvironments] = useState<Environment[]>([])
-  const [activatingEnvironment, setActivatingEnvironment] = useState<string | null>(null)
-  const [deletingEnvironment, setDeletingEnvironment] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
+export function EnvironmentManagerComponent() {
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [activatingEnvironment, setActivatingEnvironment] = useState<
+    string | null
+  >(null);
+  const [deletingEnvironment, setDeletingEnvironment] = useState<string | null>(
+    null
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [folders, setFolders] = useState<Folder[]>(DEFAULT_FOLDERS);
-  const [selectedFolder, setSelectedFolder] = useState<Folder | null>(DEFAULT_FOLDERS[0]);
+  const [selectedFolder, setSelectedFolder] = useState<Folder | null>(
+    DEFAULT_FOLDERS[0]
+  );
   const [folderDeleteOpen, setFolderDeleteOpen] = useState(false);
-  const { toast } = useToast()
+  const { toast } = useToast();
 
   const updateEnvironments = async (folderId?: string) => {
     try {
-      const curFolder = folderId || selectedFolder?.id
-      const fetchedEnvironments = await fetchEnvironments(curFolder)
-      setEnvironments(fetchedEnvironments)
-      setIsLoading(false)
+      const curFolder = folderId || selectedFolder?.id;
+      const fetchedEnvironments = await fetchEnvironments(curFolder);
+      setEnvironments(fetchedEnvironments);
+      setIsLoading(false);
     } catch (error) {
-      console.error('Failed to fetch environments:', error)
-      throw Error(`Failed to fetch environments: ${error}`)
+      console.error("Failed to fetch environments:", error);
+      throw Error(`Failed to fetch environments: ${error}`);
       // Keep isLoading true to continue showing the loading state
     }
-  }
+  };
 
   const handleAddFolder = async (folder: FolderInput) => {
     if (folder.name) {
       try {
         const newFolder = await createFolder(folder.name);
         setFolders((prev) => [...prev, newFolder]);
-        await updateEnvironments()
-        toast({ title: "Success", description: `Folder "${folder.name}" created`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+        await updateEnvironments();
+        toast({
+          title: "Success",
+          description: `Folder "${folder.name}" created`,
+          variant: "default",
+          duration: SUCCESS_TOAST_DURATION,
+        });
       } catch (error) {
         console.error(error);
-        toast({ title: "Error", description: `Failed to create folder: ${error}`, variant: "destructive" });
+        toast({
+          title: "Error",
+          description: `Failed to create folder: ${error}`,
+          variant: "destructive",
+        });
       }
     }
-  }
+  };
 
   const handleEditFolder = async (folder: Folder) => {
     if (folder.name) {
       try {
         const updated = await updateFolder(folder.id, folder.name);
-        await updateEnvironments()
-        setFolders((prev) => prev.map((f) => f.id === folder.id ? updated : f));
-        setSelectedFolder(updated)
-        toast({ title: "Success", description: `Folder "${folder.name}" updated`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+        await updateEnvironments();
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folder.id ? updated : f))
+        );
+        setSelectedFolder(updated);
+        toast({
+          title: "Success",
+          description: `Folder "${folder.name}" updated`,
+          variant: "default",
+          duration: SUCCESS_TOAST_DURATION,
+        });
       } catch (error) {
         console.error(error);
-        toast({ title: "Error", description: `Failed to update folder: ${error}`, variant: "destructive" });
+        toast({
+          title: "Error",
+          description: `Failed to update folder: ${error}`,
+          variant: "destructive",
+        });
       }
     }
-  }
+  };
 
   const handleDeleteFolder = async (folder: Folder | null) => {
     if (!folder) {
-      toast({ title: "Error", description: "No folder selected", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "No folder selected",
+        variant: "destructive",
+      });
       return;
     }
     if (folder.id === "all" || folder.id === "deleted") {
-      toast({ title: "Error", description: "Cannot delete default folders", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Cannot delete default folders",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      let newFolder = folder.id === selectedFolder?.id ? DEFAULT_FOLDERS[0] : selectedFolder
+      let newFolder =
+        folder.id === selectedFolder?.id ? DEFAULT_FOLDERS[0] : selectedFolder;
       await deleteFolder(folder.id);
-      await updateEnvironments(newFolder?.id)
-      setSelectedFolder(newFolder)
+      await updateEnvironments(newFolder?.id);
+      setSelectedFolder(newFolder);
       setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-      toast({ title: "Success", description: `Folder "${folder.name}" deleted`, variant: "default", duration: SUCCESS_TOAST_DURATION });
+      toast({
+        title: "Success",
+        description: `Folder "${folder.name}" deleted`,
+        variant: "default",
+        duration: SUCCESS_TOAST_DURATION,
+      });
     } catch (error) {
       console.error(error);
-      toast({ title: "Error", description: `Failed to delete folder: ${error}`, variant: "destructive" });
-      throw error
+      toast({
+        title: "Error",
+        description: `Failed to delete folder: ${error}`,
+        variant: "destructive",
+      });
+      throw error;
     }
-    
-  }
+  };
 
   const createEnvironmentHandler = async (environment: EnvironmentInput) => {
     try {
       // TODO: possibly change this to user dropdown in create dialog instead of default
       // Add current folder id to environment if not a default folder
-      if (selectedFolder?.id && selectedFolder?.id !== 'all' && selectedFolder?.id !== 'deleted') {
-        environment.folderIds = [selectedFolder?.id]
+      if (
+        selectedFolder?.id &&
+        selectedFolder?.id !== "all" &&
+        selectedFolder?.id !== "deleted"
+      ) {
+        environment.folderIds = [selectedFolder?.id];
       }
-      await createEnvironment(environment)
-      await updateEnvironments()
+      await createEnvironment(environment);
+      await updateEnvironments();
     } catch (error) {
-      console.error(error)
-      throw error
+      console.error(error);
+      throw error;
     }
-  }
+  };
 
   const activateEnvironmentHandler = async (id: string) => {
     try {
-      setActivatingEnvironment(id)
-      await activateEnvironment(id)
-      await updateEnvironments()
+      setActivatingEnvironment(id);
+      await activateEnvironment(id);
+      await updateEnvironments();
     } catch (error: any) {
-      console.error(error)
+      console.error(error);
       toast({
         title: "Error",
         description: `Failed to activate environment: ${error.message}`,
         variant: "destructive",
-      })
+      });
     } finally {
-      setActivatingEnvironment(null)
+      setActivatingEnvironment(null);
     }
-  }
+  };
 
   const deactivateEnvironmentHandler = async (id: string) => {
     try {
-      setActivatingEnvironment(id)
-      await deactivateEnvironment(id)
-      await updateEnvironments()
+      setActivatingEnvironment(id);
+      await deactivateEnvironment(id);
+      await updateEnvironments();
     } catch (error: any) {
-      console.error(error)
+      console.error(error);
       toast({
         title: "Error",
         description: `Failed to deactivate environment: ${error.message}`,
         variant: "destructive",
-      })
+      });
     } finally {
-      setActivatingEnvironment(null)
+      setActivatingEnvironment(null);
     }
-  }
+  };
 
   const deleteEnvironmentHandler = async (id: string) => {
     // Get the environment
@@ -165,19 +220,9 @@ const SUCCESS_TOAST_DURATION = 2000
     try {
       console.log(`deleteEnvironmentHandler: ${id} ${environment.folderIds}`);
       setDeletingEnvironment(id);
-
-      const folderId = environment.folderIds && environment.folderIds.length > 0 ? environment.folderIds[0] : null;
-
-      if (folderId === "deleted") {
-        // Proceed with actual deletion
-        const response = await deleteEnvironment(id);
-        await updateEnvironments();
-        return response;
-      } else {
-        // Move to "deleted" folder
-        await updateEnvironment(id, { name: environment.name, folderIds: ["deleted"] });
-        await updateEnvironments();
-      }
+      const response = await deleteEnvironment(id);
+      await updateEnvironments();
+      return response;
     } catch (error: any) {
       console.error(error);
       toast({
@@ -190,55 +235,60 @@ const SUCCESS_TOAST_DURATION = 2000
     }
   };
 
-  const duplicateEnvironmentHandler = async (id: string, environment: EnvironmentInput) => {
+  const duplicateEnvironmentHandler = async (
+    id: string,
+    environment: EnvironmentInput
+  ) => {
     try {
-      console.log(`duplicateEnvironmentHandler: ${environment}`)
-      const response = await duplicateEnvironment(id, environment)
-      await updateEnvironments()
-      return response
+      console.log(`duplicateEnvironmentHandler: ${environment}`);
+      const response = await duplicateEnvironment(id, environment);
+      await updateEnvironments();
+      return response;
     } catch (error) {
-      console.error(error)
-      throw error
+      console.error(error);
+      throw error;
     }
-  }
+  };
 
-  const updateEnvironmentHandler = async (id: string, name: string, folderIds?: string[]) => {
-    console.log(`updateEnvironmentHandler: ${id} ${name} ${folderIds}`)
+  const updateEnvironmentHandler = async (
+    id: string,
+    name: string,
+    folderIds?: string[]
+  ) => {
+    console.log(`updateEnvironmentHandler: ${id} ${name} ${folderIds}`);
     try {
-      await updateEnvironment(id, { name, folderIds })
-      await updateEnvironments()
+      await updateEnvironment(id, { name, folderIds });
+      await updateEnvironments();
     } catch (error) {
-      console.error(error)
-      throw error
+      console.error(error);
+      throw error;
     }
-  }
+  };
 
   const updateUserSettingsHandler = async (settings: UserSettings) => {
     try {
-      await updateUserSettings(settings)
-      setUserSettings(settings)
+      await updateUserSettings(settings);
+      setUserSettings(settings);
     } catch (error) {
-      console.error(error)
-      throw error
+      console.error(error);
+      throw error;
     }
-  }
+  };
 
   // Get the user settings on mount
   useEffect(() => {
     getUserSettings().then((settings: UserSettings) => {
-      setUserSettings(settings)
-      // const mergedFolders = [...DEFAULT_FOLDERS, ...(settings.folders || [])];
-      // setFolders(mergedFolders)
-      setFolders(settings.folders || [])
-    })
-  }, [])
+      setUserSettings(settings);
+      setFolders(settings.folders || []);
+    });
+  }, []);
 
   // Poll every 5 seconds to refresh the environments
   useEffect(() => {
-    updateEnvironments(selectedFolder?.id)
+    updateEnvironments(selectedFolder?.id);
     const retryInterval = setInterval(async () => {
       try {
-        await updateEnvironments(selectedFolder?.id)
+        await updateEnvironments(selectedFolder?.id);
       } catch (error) {
         console.error("Error updating environments1:", error);
         setIsLoading(true);
@@ -261,37 +311,56 @@ const SUCCESS_TOAST_DURATION = 2000
         </div>
       )}
 
-
       <h1 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-blue-600 to-teal-600 text-transparent bg-clip-text title">
         ComfyUI Environment Manager
       </h1>
 
-
       <div className="flex flex-col md:flex-row items-center justify-between mb-4">
         <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
-          <CreateEnvironmentDialog userSettings={userSettings} environments={environments} createEnvironmentHandler={createEnvironmentHandler}>
-            <Button className="bg-blue-600 hover:bg-blue-700">Create Environment</Button>
+          <CreateEnvironmentDialog
+            userSettings={userSettings}
+            environments={environments}
+            createEnvironmentHandler={createEnvironmentHandler}
+          >
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              Create Environment
+            </Button>
           </CreateEnvironmentDialog>
 
-          <UserSettingsDialog updateUserSettingsHandler={updateUserSettingsHandler}>
-            <Button className="bg-purple-600 hover:bg-purple-700"><Settings className="w-4 h-4 mr-2" />Settings</Button>
+          <UserSettingsDialog
+            updateUserSettingsHandler={updateUserSettingsHandler}
+          >
+            <Button className="bg-purple-600 hover:bg-purple-700">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
           </UserSettingsDialog>
         </div>
 
         <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
           <a
-              href={`https://cyber-damselfly-b6c.notion.site/ComfyUI-Environment-Manager-14ffd5b1ca3b804abafbdb4bd6b8068e`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center"
-            >
-              <Button className="bg-slate-600 hover:bg-slate-700">
-                  <ExternalLink className="w-4 h-4" />Documentation
-              </Button>
-            </a>
+            href={`https://cyber-damselfly-b6c.notion.site/ComfyUI-Environment-Manager-14ffd5b1ca3b804abafbdb4bd6b8068e`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center"
+          >
+            <Button className="bg-slate-600 hover:bg-slate-700">
+              <ExternalLink className="w-4 h-4" />
+              Documentation
+            </Button>
+          </a>
 
-          <a href='https://ko-fi.com/A0A616TJHD' target='_blank' rel="noopener noreferrer">
-            <img height='36' style={{border: '0px', height: '36px'}} src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' />
+          <a
+            href="https://ko-fi.com/A0A616TJHD"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img
+              height="36"
+              style={{ border: "0px", height: "36px" }}
+              src="https://storage.ko-fi.com/cdn/kofi6.png?v=6"
+              alt="Buy Me a Coffee at ko-fi.com"
+            />
           </a>
         </div>
       </div>
@@ -301,11 +370,11 @@ const SUCCESS_TOAST_DURATION = 2000
           folders={folders}
           selectedFolder={selectedFolder}
           onSelectFolder={(folder) => {
-            console.log(`Selected folder: ${folder.name}`)
-            setSelectedFolder(folder)
-            updateEnvironments(folder.id)
+            console.log(`Selected folder: ${folder.name}`);
+            setSelectedFolder(folder);
+            updateEnvironments(folder.id);
           }}
-          onAddFolder={handleAddFolder} 
+          onAddFolder={handleAddFolder}
           onEditFolder={handleEditFolder}
           onDeleteFolder={handleDeleteFolder}
         />
@@ -331,10 +400,17 @@ const SUCCESS_TOAST_DURATION = 2000
       {/* Footer at absolute bottom left */}
       <div className="absolute bottom-4 left-4 flex flex-col items-center justify-center">
         <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-          Made with 💜 by <a href="https://akatz.ai" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-teal-600">Akatz</a>
+          Made with 💜 by{" "}
+          <a
+            href="https://akatz.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-teal-600"
+          >
+            Akatz
+          </a>
         </p>
       </div>
     </div>
-  )
+  );
 }
-
