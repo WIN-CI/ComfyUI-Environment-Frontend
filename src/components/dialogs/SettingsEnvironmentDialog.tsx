@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Environment } from "@/types/Environment";
@@ -23,22 +22,10 @@ import {
 } from "@/components/ui/form";
 import {
   Loader2,
-  Calendar,
-  Image,
-  Copy,
-  Hash,
-  Folder,
-  Terminal,
-  Tag,
-  Network,
-  HardDrive,
-  Package,
-  FolderIcon,
-  Trash,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Folder as FolderType } from "@/types/UserSettings";
 import { FolderSelector } from "../FolderSelector";
+import { EnvironmentInfoCard } from "../EnvironmentInfoCard";
 
 const SUCCESS_TOAST_DURATION = 2000;
 
@@ -119,12 +106,13 @@ export default function SettingsEnvironmentDialog({
     }
   };
 
-  // On close, reset the selected folder and form values
+  // On open and close, reset the selected folder and form values
   useEffect(() => {
-    if (!open) {
-      setSelectedFolder(getEnvironmentFolder(environment, folders));
-      form.reset();
-    }
+    setSelectedFolder(getEnvironmentFolder(environment, folders));
+    form.reset({
+      name: environment.name,
+      folderIds: environment.folderIds || [],
+    });
   }, [open]);
 
   return (
@@ -180,93 +168,6 @@ export default function SettingsEnvironmentDialog({
                 </FormItem>
               )}
             />
-            <Card>
-              <CardHeader>
-                <CardTitle>About</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4">
-                  <InfoItem
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Created At"
-                    value={new Date(
-                      Number(environment.metadata?.["created_at"]) * 1000
-                    ).toLocaleString()}
-                  />
-                  {environment.folderIds &&
-                    environment.folderIds.length > 0 &&
-                    environment.folderIds[0] === "deleted" && (
-                      <InfoItem
-                        icon={<Trash className="h-4 w-4" />}
-                        label="Deleted At"
-                        value={new Date(
-                          Number(environment.metadata?.["deleted_at"]) * 1000
-                        ).toLocaleString()}
-                      />
-                    )}
-                  <InfoItem
-                    icon={<Image className="h-4 w-4" />}
-                    label="Base Image"
-                    value={environment.metadata?.["base_image"] as string}
-                  />
-                  <InfoItem
-                    icon={<Copy className="h-4 w-4" />}
-                    label="Duplicate"
-                    value={environment.duplicate ? "Yes" : "No"}
-                  />
-                  <InfoItem
-                    icon={<Package className="h-4 w-4" />}
-                    label="Container Name"
-                    value={
-                      environment.container_name || environment.name || "N/A"
-                    }
-                  />
-                  <InfoItem
-                    icon={<Hash className="h-4 w-4" />}
-                    label="Container ID"
-                    value={environment.id || "N/A"}
-                  />
-                  <InfoItem
-                    icon={<Folder className="h-4 w-4" />}
-                    label="ComfyUI Path"
-                    value={environment.comfyui_path || "N/A"}
-                  />
-                  <InfoItem
-                    icon={<Terminal className="h-4 w-4" />}
-                    label="Command"
-                    value={environment.command || "N/A"}
-                  />
-                  <InfoItem
-                    icon={<Tag className="h-4 w-4" />}
-                    label="ComfyUI Release"
-                    value={environment.options?.["comfyui_release"] as string}
-                  />
-                  <InfoItem
-                    icon={<Network className="h-4 w-4" />}
-                    label="Port"
-                    value={environment.options?.["port"] as string}
-                  />
-                </div>
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium mb-2 flex items-center">
-                    <HardDrive className="h-4 w-4 mr-2" />
-                    Mount Config
-                  </h4>
-                  <ul className="grid grid-cols-2 gap-2">
-                    {Object.entries(
-                      (environment.options?.["mount_config"] as Record<
-                        string,
-                        string
-                      >) || {}
-                    ).map(([key, value]) => (
-                      <li key={key} className="text-sm">
-                        <span className="font-medium">{key}:</span> {value}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
             <div className="flex justify-end">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
@@ -279,28 +180,10 @@ export default function SettingsEnvironmentDialog({
                 )}
               </Button>
             </div>
+            <EnvironmentInfoCard environment={environment} />
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function InfoItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center space-x-2">
-      {icon}
-      <span className="text-sm">
-        <span className="font-medium">{label}:</span> {value}
-      </span>
-    </div>
   );
 }
