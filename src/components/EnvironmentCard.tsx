@@ -65,6 +65,10 @@ export default function EnvironmentCard({
   const port = environment.options?.["port"] as number | undefined;
   const baseImage = environment.metadata?.["base_image"] as string;
   const environmentId = environment.id || "";
+  const deleteDescription =
+    environment.folderIds?.[0] === "deleted"
+      ? `This action cannot be undone. This will permanently delete your environment.`
+      : `This will move your environment to the "Recently Deleted" folder.`;
 
   const handleActivateDeactivate = () => {
     if (isRunning) {
@@ -157,7 +161,7 @@ export default function EnvironmentCard({
 
             <CustomAlertDialog
               title={`Delete ${environment.name} ?`}
-              description="This action cannot be undone. This will permanently delete your environment."
+              description={deleteDescription}
               cancelText="Cancel"
               actionText="Delete"
               onCancel={() => {}}

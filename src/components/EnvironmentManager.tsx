@@ -176,6 +176,28 @@ export function EnvironmentManagerComponent() {
     }
   };
 
+  const duplicateEnvironmentHandler = async (
+    id: string,
+    environment: EnvironmentInput
+  ) => {
+    try {
+      if (
+        selectedFolder?.id &&
+        selectedFolder?.id !== "all" &&
+        selectedFolder?.id !== "deleted"
+      ) {
+        environment.folderIds = [selectedFolder?.id];
+      }
+      console.log(`duplicateEnvironmentHandler: ${environment}`);
+      const response = await duplicateEnvironment(id, environment);
+      await updateEnvironments();
+      return response;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
   const activateEnvironmentHandler = async (id: string) => {
     try {
       setActivatingEnvironment(id);
@@ -232,21 +254,6 @@ export function EnvironmentManagerComponent() {
       });
     } finally {
       setDeletingEnvironment(null);
-    }
-  };
-
-  const duplicateEnvironmentHandler = async (
-    id: string,
-    environment: EnvironmentInput
-  ) => {
-    try {
-      console.log(`duplicateEnvironmentHandler: ${environment}`);
-      const response = await duplicateEnvironment(id, environment);
-      await updateEnvironments();
-      return response;
-    } catch (error) {
-      console.error(error);
-      throw error;
     }
   };
 
