@@ -8,11 +8,13 @@ export type EnvironmentInput = {
     command?: string;
     comfyui_path?: string;
     options?: Options;
+    folderIds?: string[];
 }
 
 export type Environment = {
     name: string;
     image: string;
+    container_name?: string;
     id?: string;
     status?: string;
     command?: string;
@@ -20,11 +22,13 @@ export type Environment = {
     comfyui_path?: string;
     options?: Options;
     metadata?: Options;
+    folderIds?: string[];
 }
 
 export type EnvironmentUpdate = {
     name?: string;
     options?: Options;
+    folderIds?: string[];
 }
 
 // name: str

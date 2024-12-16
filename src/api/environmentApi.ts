@@ -1,11 +1,11 @@
 // src/api/environmentApi.ts
-import { UserSettingsInput } from '@/types/UserSettings';
+import { Folder, UserSettingsInput } from '@/types/UserSettings';
 import { Environment, EnvironmentInput, EnvironmentUpdate } from '../types/Environment';
 
 const API_BASE_URL = 'http://localhost:5172'; // TODO: put in .env
 
-export async function fetchEnvironments() {
-  const response = await fetch(`${API_BASE_URL}/environments`);
+export async function fetchEnvironments(folderId?: string) {
+  const response = await fetch(`${API_BASE_URL}/environments${folderId ? `?folderId=${folderId}` : ''}`);
   if (!response.ok) {
     const errorDetails = await response.json()
     console.error(`${response.status} - Failed to fetch environments: ${errorDetails.detail}`)
@@ -224,6 +224,43 @@ export function pullImageStream(image: string, onProgress: (progress: number) =>
       reject(err);
     };
   });
+}
+
+export async function createFolder(name: string): Promise<Folder> {
+  const response = await fetch(`${API_BASE_URL}/folders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  if (!response.ok) {
+    const errorDetails = await response.json();
+    throw new Error(errorDetails.detail);
+  }
+  return response.json();
+}
+
+export async function updateFolder(id: string, name: string): Promise<Folder> {
+  const response = await fetch(`${API_BASE_URL}/folders/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  if (!response.ok) {
+    const errorDetails = await response.json();
+    throw new Error(errorDetails.detail);
+  }
+  return response.json();
+}
+
+export async function deleteFolder(id: string): Promise<{status: string}> {
+  const response = await fetch(`${API_BASE_URL}/folders/${id}`, {
+    method: 'DELETE'
+  });
+  if (!response.ok) {
+    const errorDetails = await response.json();
+    throw new Error(errorDetails.detail);
+  }
+  return response.json();
 }
 
 // Add more functions for other API actions like update, delete, etc.
