@@ -287,11 +287,6 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         duration: SUCCESS_TOAST_DURATION,
       })
       await continueCreateEnvironment(pendingEnvironment);
-      // On success, append "ComfyUI" to the comfyui path TODO: This is a hack to make sure the path is correct
-      // const currentPath = form.getValues("comfyUIPath");
-      // const separator = currentPath.includes("\\") ? "\\" : "/";
-      // const newPath = currentPath.endsWith(separator) ? currentPath : currentPath + separator;
-      // form.setValue("comfyUIPath", newPath + "ComfyUI");
       
     } catch (error: any) {
       setIsInstallingComfyUILoading(false);
@@ -339,7 +334,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         }}
       />
 
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+      <Dialog open={isCreateModalOpen} onOpenChange={installComfyUIDialog ? undefined : setIsCreateModalOpen}>
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="max-h-[80vh] overflow-y-auto dialog-content">
           <DialogHeader>
@@ -469,28 +464,6 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4 px-4">
-                        {/* <FormField
-                          control={form.control}
-                          name="copyCustomNodes"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">
-                                  Copy Custom Nodes From Local
-                                </FormLabel>
-                                <FormDescription>
-                                  This will copy custom nodes from your local ComfyUI installation
-                                </FormDescription>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        /> */}
                         <FormField
                           control={form.control}
                           name="runtime"
