@@ -160,7 +160,7 @@ export default function DuplicateEnvironmentDialog({ environment, environments, 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={isLoading ? undefined : onOpenChange}>
       <DialogContent className='max-h-[80vh] overflow-y-auto dialog-content'>
         <DialogHeader>
           <DialogTitle>Duplicate Environment</DialogTitle>
