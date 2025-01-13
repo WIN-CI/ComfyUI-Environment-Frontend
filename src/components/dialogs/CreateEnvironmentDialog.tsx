@@ -189,9 +189,33 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
     }
   }
 
+  const finishCreateEnvironment = async (environment: EnvironmentInput | null) => {
+    if (!environment) return;
+    // Create environment
+    await createEnvironmentHandler(environment);
+    setIsCreateModalOpen(false);
+    resetForm();
+    toast({
+      title: "Success",
+      description: "Environment created successfully",
+      duration: SUCCESS_TOAST_DURATION,
+    });
+
+    // Cleanup after success
+    setIsLoading(false);
+    setPendingEnvironment(null);
+  }
+
   const continueCreateEnvironment = async (environment: EnvironmentInput | null) => {
     if (!environment) return;
     try {
+      const imageExists = await checkImageExists(environment.image);
+      if (!imageExists) {
+        setPullImageDialog(true);
+        setIsLoading(false);
+        return; // Early return, no cleanup here
+      }
+
       const validComfyUIPath = await checkValidComfyUIPath(environment.comfyui_path || "");
       if (!validComfyUIPath) {
         setInstallComfyUIDialog(true);
@@ -199,26 +223,7 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         return; // Early return, no cleanup here
       }
   
-      const imageExists = await checkImageExists(environment.image);
-      if (!imageExists) {
-        setPullImageDialog(true);
-        setIsLoading(false);
-        return; // Early return, no cleanup here
-      }
-  
-      // Create environment
-      await createEnvironmentHandler(environment);
-      setIsCreateModalOpen(false);
-      resetForm();
-      toast({
-        title: "Success",
-        description: "Environment created successfully",
-        duration: SUCCESS_TOAST_DURATION,
-      });
-  
-      // Cleanup after success
-      setIsLoading(false);
-      setPendingEnvironment(null);
+      await finishCreateEnvironment(environment);
     } catch (error: any) {
       // Handle error
       toast({
@@ -268,15 +273,29 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
     form.setValue("environmentType", "Custom")
   }
 
+  const updateComfyUIPath = async (comfyUIPath: string) => {
+    // TODO: This is a temporary solution to update the comfyUI path based on the OS
+    // We should find a better way to do this in the future
+    const isUnix = comfyUIPath.includes("/")
+    const isWindows = comfyUIPath.includes("\\")
+    if (isUnix) {
+      return comfyUIPath + "/ComfyUI"
+    } else if (isWindows) {
+      return comfyUIPath + "\\ComfyUI"
+    }
+    return comfyUIPath
+  }
+
   const handleInstallComfyUI = async () => {
     try {
-      console.log(form.getValues("comfyUIPath"))
+      const comfyUIPath = form.getValues("comfyUIPath")
+      console.log(comfyUIPath)
       let branch = form.getValues("release")
       branch = getLatestComfyUIReleaseFromBranch(branch, releaseOptions)
       console.log(branch)
       setIsInstallingComfyUILoading(true)
 
-      await tryInstallComfyUI(form.getValues("comfyUIPath"), branch)
+      await tryInstallComfyUI(comfyUIPath, branch)
 
       setInstallComfyUIDialog(false);
       setIsInstallingComfyUILoading(false);
@@ -286,7 +305,17 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         description: "ComfyUI installed successfully",
         duration: SUCCESS_TOAST_DURATION,
       })
-      await continueCreateEnvironment(pendingEnvironment);
+      // Try updating the comfyUI path with /ComfyUI or \ComfyUI based on the OS
+      const updatedComfyUIPath = await updateComfyUIPath(comfyUIPath);
+      form.setValue("comfyUIPath", updatedComfyUIPath);
+      const updatedEnvironment: EnvironmentInput = {
+        ...pendingEnvironment,
+        comfyui_path: updatedComfyUIPath,
+        name: pendingEnvironment?.name || "",
+        image: pendingEnvironment?.image || "",
+      };
+      setPendingEnvironment(updatedEnvironment);
+      await continueCreateEnvironment(updatedEnvironment);
       
     } catch (error: any) {
       setIsInstallingComfyUILoading(false);
@@ -312,7 +341,11 @@ export default function CreateEnvironmentDialog({ children, userSettings, enviro
         cancelText="No"
         actionText="Yes"
         onAction={handleInstallComfyUI}
-        onCancel={() => setInstallComfyUIDialog(false)}
+        onCancel={async () => {
+          console.log("onCancel")
+          setInstallComfyUIDialog(false)
+          await finishCreateEnvironment(pendingEnvironment);
+        }}
         variant="default"
         loading={isInstallingComfyUILoading}
       />
