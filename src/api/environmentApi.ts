@@ -1,8 +1,10 @@
 // src/api/environmentApi.ts
 import { Folder, UserSettingsInput } from '@/types/UserSettings';
 import { Environment, EnvironmentInput, EnvironmentUpdate } from '../types/Environment';
+import env from "dotenv";
 
-const API_BASE_URL = 'http://localhost:5172'; // TODO: put in .env
+env.config()
+const API_BASE_URL = process.env.SERVER_URL;
 
 export async function fetchEnvironments(folderId?: string) {
   const response = await fetch(`${API_BASE_URL}/environments${folderId ? `?folderId=${folderId}` : ''}`);
